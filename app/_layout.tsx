@@ -7,6 +7,9 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import * as NavigationBar from 'expo-navigation-bar';
+import { useEffect } from "react";
+import { Platform } from "react-native";
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -14,6 +17,13 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      // Sets the system navigation bar to a specific color
+      NavigationBar.setBackgroundColorAsync("#000"); 
+    }
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
