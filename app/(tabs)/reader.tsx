@@ -1,11 +1,11 @@
+import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter, Verse } from '@/hooks/useBible';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReaderScreen() {
@@ -65,13 +65,12 @@ export default function ReaderScreen() {
           </Text>
         </ScrollView>
         
-        <TouchableOpacity 
-          style={[styles.fab, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+
+        
+        <SelectVerseButton 
+          style={styles.fab}
           onPress={() => alert('Select Verse')}
-        >
-          <IconSymbol name="book.fill" size={24} color="#fff" />
-          <Text style={styles.fabText}>בחר פסוק</Text>
-        </TouchableOpacity>
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -121,21 +120,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  fabText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 8,
   },
 });
 
