@@ -3,14 +3,23 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBibleChapter } from '@/hooks/useBible';
-import React from 'react';
+import { useBibleChapter, Verse } from '@/hooks/useBible';
+import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
-  // Fetch Genesis Chapter 1 - in a real app, these would come from navigation params or state
   const { verses, loading } = useBibleChapter('Genesis', 1);
+  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
+
+  const handleVersePress = (verse: Verse) => {
+    if (selectedVerseId === verse.id) {
+      setSelectedVerseId(null);
+    } else {
+      setSelectedVerseId(verse.id);
+      console.log(`Clicked verse ${verse.verse}: ${verse.text}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -28,22 +37,29 @@ export default function ReaderScreen() {
       </View>
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Parent Text Container - nested Text flows inline like HTML spans */}
-        <Text 
-          style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]} 
-          selectable
-        >
-          {verses.map((verse) => (
-            <React.Fragment key={verse.id}>
-              {/* Verse Number (Small & Grey) */}
-              <Text style={styles.verseNumber}> {verse.verse} </Text>
-              
-              {/* Verse Text (Regular) */}
-              <Text style={styles.verseContent}>
-                {verse.text}
-              </Text>
-            </React.Fragment>
-          ))}
+        <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
+          {verses.map((verse) => {
+            const isSelected = selectedVerseId === verse.id;
+            
+            return (
+              <React.Fragment key={verse.id}>
+                {/* Verse Number - NOT clickable */}
+                <Text style={styles.verseNumber}> {verse.verse} </Text>
+                
+                {/* Verse Text - CLICKABLE */}
+                <Text 
+                  style={[
+                    styles.verseContent, 
+                    isSelected && styles.selectedVerse
+                  ]}
+                  onPress={() => handleVersePress(verse)}
+                  suppressHighlighting={false}
+                >
+                  {verse.text}
+                </Text>
+              </React.Fragment>
+            );
+          })}
         </Text>
       </ScrollView>
       
@@ -74,16 +90,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    alignItems: 'flex-end', // RTL alignment
+    alignItems: 'flex-end',
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 80, // Space for FAB
+    paddingBottom: 80,
   },
   chapterText: {
     fontSize: 22,
-    lineHeight: 36, // Higher line height improves readability for Hebrew
-    textAlign: 'right', // Align text to the right for RTL
+    lineHeight: 36,
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   verseNumber: {
@@ -93,6 +109,10 @@ const styles = StyleSheet.create({
   },
   verseContent: {
     // Inherits from chapterText
+  },
+  selectedVerse: {
+    backgroundColor: '#fff3cd', // Light yellow highlight
+    color: '#000',
   },
   fab: {
     position: 'absolute',
@@ -115,5 +135,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
+
 
 
