@@ -1,29 +1,11 @@
-import { StyleSheet } from 'react-native';
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
+import { Text, View } from 'react-native';
 
 export function EmptyCard() {
   return (
-    <ThemedView style={styles.card}>
-      <ThemedText style={styles.text}>Coming Soon</ThemedText>
-    </ThemedView>
+    <View className="h-24 rounded-xl my-2 mx-4 justify-center items-center border border-gray-300/30 dark:border-gray-600/30 opacity-50 bg-gray-100 dark:bg-neutral-800">
+      <Text className="opacity-50 italic text-gray-500 dark:text-gray-400">
+        Coming Soon
+      </Text>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    height: 100,
-    borderRadius: 12,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.2)',
-    opacity: 0.5, // Make it look like a placeholder
-  },
-  text: {
-    opacity: 0.5,
-    fontStyle: 'italic',
-  },
-});

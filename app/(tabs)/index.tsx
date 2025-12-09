@@ -1,50 +1,31 @@
 import { EmptyCard } from '@/components/EmptyCard';
 import { SearchBar } from '@/components/SearchBar';
-import { ThemedView } from '@/components/themed-view';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
 import { FlashList } from '@shopify/flash-list';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const data = new Array(10).fill(0); // 10 empty cards
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.listContainer}>
+    <View className="flex-1 bg-white dark:bg-neutral-900">
+      <SafeAreaView className="flex-1" edges={['top']}>
+        <View className="flex-1 w-full max-w-[600px] self-center">
           <FlashList
             data={data}
             renderItem={() => <EmptyCard />}
             estimatedItemSize={100}
             ListHeaderComponent={() => (
-              <View style={styles.headerContainer}>
+              <View className="mb-2.5">
                 <VerseOfTheDay />
               </View>
             )}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={{ paddingBottom: 20 }}
           />
         </View>
         <SearchBar />
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContainer: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 600, // Constrain width on tablets/web
-    alignSelf: 'center',
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  headerContainer: {
-    marginBottom: 10,
-  },
-});
