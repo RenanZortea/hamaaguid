@@ -1,9 +1,10 @@
+import { GlassView } from '@/components/ui/GlassView';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Text, View } from 'react-native';
 
 export function VerseOfTheDay() {
   return (
-    <View className="p-5 rounded-2xl m-4 shadow-md border border-gray-200/30 dark:border-gray-600/30 bg-white dark:bg-neutral-800">
+    <GlassView className="m-4">
       {/* Header */}
       <View className="flex-row items-center mb-4 opacity-70">
         <IconSymbol name="book.fill" size={24} color="#808080" />
@@ -27,6 +28,6 @@ export function VerseOfTheDay() {
           Genesis 1:1
         </Text>
       </View>
-    </View>
+    </GlassView>
   );
 }

@@ -2,14 +2,19 @@ import { EmptyCard } from '@/components/EmptyCard';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
 import { FlashList } from '@shopify/flash-list';
-import { View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const currentTheme = useColorScheme();
   const data = new Array(10).fill(0); // 10 empty cards
 
   return (
-    <View className="flex-1 bg-white dark:bg-neutral-900">
+    <LinearGradient
+      colors={currentTheme === 'dark' ? ['#171717', '#262626'] : ['#e5e5e5', '#ffffff']}
+      className="flex-1"
+    >
       <SafeAreaView className="flex-1" edges={['top']}>
         <View className="flex-1 w-full max-w-[600px] self-center">
           <FlashList
@@ -26,6 +31,6 @@ export default function HomeScreen() {
         </View>
         <SearchBar />
       </SafeAreaView>
-    </View>
+    </LinearGradient>
   );
 }

@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter, Verse } from '@/hooks/useBible';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
@@ -32,44 +33,46 @@ export default function ReaderScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title">בראשית א</ThemedText>
-      </View>
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
-          {verses.map((verse) => {
-            const isSelected = selectedVerseId === verse.id;
-            
-            return (
-              <React.Fragment key={verse.id}>
-                {/* Verse Number - NOT clickable */}
-                <Text style={styles.verseNumber}> {verse.verse} </Text>
-                
-                {/* Verse Text - CLICKABLE */}
-                <Text 
-                  style={[
-                    styles.verseContent, 
-                    isSelected && styles.selectedVerse
-                  ]}
-                  onPress={() => handleVersePress(verse)}
-                  suppressHighlighting={false}
-                >
-                  {verse.text}
-                </Text>
-              </React.Fragment>
-            );
-          })}
-        </Text>
-      </ScrollView>
-      
-      <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
-        onPress={() => alert('Select Verse')}
-      >
-        <IconSymbol name="book.fill" size={24} color="#fff" />
-        <Text style={styles.fabText}>בחר פסוק</Text>
-      </TouchableOpacity>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <ThemedText type="title">בראשית א</ThemedText>
+        </View>
+        
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
+            {verses.map((verse) => {
+              const isSelected = selectedVerseId === verse.id;
+              
+              return (
+                <React.Fragment key={verse.id}>
+                  {/* Verse Number - NOT clickable */}
+                  <Text style={styles.verseNumber}> {verse.verse} </Text>
+                  
+                  {/* Verse Text - CLICKABLE */}
+                  <Text 
+                    style={[
+                      styles.verseContent, 
+                      isSelected && styles.selectedVerse
+                    ]}
+                    onPress={() => handleVersePress(verse)}
+                    suppressHighlighting={false}
+                  >
+                    {verse.text}
+                  </Text>
+                </React.Fragment>
+              );
+            })}
+          </Text>
+        </ScrollView>
+        
+        <TouchableOpacity 
+          style={[styles.fab, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+          onPress={() => alert('Select Verse')}
+        >
+          <IconSymbol name="book.fill" size={24} color="#fff" />
+          <Text style={styles.fabText}>בחר פסוק</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     </ThemedView>
   );
 }

@@ -20,10 +20,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      // Sets the system navigation bar to a specific color
-      NavigationBar.setBackgroundColorAsync("#000"); 
+      const backgroundColor = colorScheme === 'dark' ? '#151718' : '#ffffff';
+      const buttonStyle = colorScheme === 'dark' ? 'light' : 'dark';
+      NavigationBar.setBackgroundColorAsync(backgroundColor);
+      NavigationBar.setButtonStyleAsync(buttonStyle);
     }
-  }, []);
+  }, [colorScheme]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
