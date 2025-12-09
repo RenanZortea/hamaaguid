@@ -1,4 +1,5 @@
 import { EmptyCard } from '@/components/EmptyCard';
+import { SearchBar } from '@/components/SearchBar';
 import { ThemedView } from '@/components/themed-view';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
 import { FlashList } from '@shopify/flash-list';
@@ -24,6 +25,7 @@ export default function HomeScreen() {
             contentContainerStyle={styles.listContent}
           />
         </View>
+        <SearchBar />
       </SafeAreaView>
     </ThemedView>
   );
