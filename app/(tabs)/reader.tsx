@@ -3,29 +3,14 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBibleChapter, Verse } from '@/hooks/useBible';
-import { FlashList } from '@shopify/flash-list';
+import { useBibleChapter } from '@/hooks/useBible';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
   // Fetch Genesis Chapter 1 - in a real app, these would come from navigation params or state
   const { verses, loading } = useBibleChapter('Genesis', 1);
-
-  const renderItem = ({ item }: { item: Verse }) => (
-    <View style={styles.verseContainer}>
-      <Text style={[styles.verseNumber, { color: Colors[colorScheme ?? 'light'].text }]}>
-        {item.verse}
-      </Text>
-      <Text 
-        style={[styles.verseText, { color: Colors[colorScheme ?? 'light'].text }]} 
-        selectable
-      >
-        {item.text}
-      </Text>
-    </View>
-  );
 
   if (loading) {
     return (
@@ -42,13 +27,25 @@ export default function ReaderScreen() {
         <ThemedText type="title">בראשית א</ThemedText>
       </View>
       
-      <FlashList
-        data={verses}
-        renderItem={renderItem}
-        estimatedItemSize={100}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-      />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Parent Text Container - nested Text flows inline like HTML spans */}
+        <Text 
+          style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]} 
+          selectable
+        >
+          {verses.map((verse) => (
+            <React.Fragment key={verse.id}>
+              {/* Verse Number (Small & Grey) */}
+              <Text style={styles.verseNumber}> {verse.verse} </Text>
+              
+              {/* Verse Text (Regular) */}
+              <Text style={styles.verseContent}>
+                {verse.text}
+              </Text>
+            </React.Fragment>
+          ))}
+        </Text>
+      </ScrollView>
       
       <TouchableOpacity 
         style={[styles.fab, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
@@ -79,28 +76,23 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
     alignItems: 'flex-end', // RTL alignment
   },
-  listContent: {
+  scrollContent: {
     padding: 16,
     paddingBottom: 80, // Space for FAB
   },
-  verseContainer: {
-    flexDirection: 'row-reverse', // RTL for Hebrew
-    marginBottom: 16,
-    alignItems: 'flex-start',
+  chapterText: {
+    fontSize: 22,
+    lineHeight: 36, // Higher line height improves readability for Hebrew
+    textAlign: 'right', // Align text to the right for RTL
+    writingDirection: 'rtl',
   },
   verseNumber: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginLeft: 8,
-    marginTop: 6,
-    width: 24,
-    textAlign: 'center',
+    fontSize: 14,
+    color: '#888',
+    fontWeight: 'bold',
   },
-  verseText: {
-    flex: 1,
-    fontSize: 22,
-    lineHeight: 32,
-    textAlign: 'right', // RTL for Hebrew
+  verseContent: {
+    // Inherits from chapterText
   },
   fab: {
     position: 'absolute',
@@ -123,4 +115,5 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
+
 
