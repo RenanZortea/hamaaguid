@@ -21,7 +21,8 @@ import Animated, {
   FadeIn,
   FadeOut,
   Layout
-} from 'react-native-reanimated'; // Removed ScrollView from here
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 1. Import this
 
 // --- CONFIG ---
 const SPRING_CONFIG = { damping: 10, stiffness: 120 };
@@ -35,7 +36,7 @@ export interface AnimatedSearchProps {
   loading: boolean;
   onSearchChange: (text: string) => void;
   placeholder?: string;
-  onLoadMore?: () => void; // Add this prop
+  onLoadMore?: () => void;
 }
 
 export function AnimatedSearch({ 
@@ -51,6 +52,7 @@ export function AnimatedSearch({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets(); // 2. Get insets
 
   // State
   const [query, setQuery] = useState('');
@@ -67,7 +69,7 @@ export function AnimatedSearch({
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       handleBlur();
-      return true; // Prevent default back behavior
+      return true;
     });
 
     return () => backHandler.remove();
@@ -77,7 +79,7 @@ export function AnimatedSearch({
   const handleBlur = () => {
     Keyboard.dismiss();
     setQuery('');
-    onSearchChange(''); // Reset parent query
+    onSearchChange('');
     onCancel?.();
   };
 
@@ -91,7 +93,6 @@ export function AnimatedSearch({
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
     
-    // Check if we are near the bottom
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
       if (onLoadMore) {
         onLoadMore();
@@ -102,7 +103,8 @@ export function AnimatedSearch({
   if (!visible) return null;
 
   return (
-    <View style={styles.fullscreenOverlay}>
+    // 3. Update style to use insets.top and flex-start
+    <View style={[styles.fullscreenOverlay, { paddingTop: insets.top + 10 }]}>
       {/* Backdrop to dismiss on tap */}
       <Pressable style={styles.backdrop} onPress={handleBlur} />
       
@@ -130,7 +132,7 @@ export function AnimatedSearch({
             value={query}
             onChangeText={handleTextChange}
             autoFocus={true}
-            textAlign="right" // Hebrew support
+            textAlign="right"
           />
           
           {loading && results.length === 0 ? (
@@ -144,23 +146,21 @@ export function AnimatedSearch({
 
         {/* --- POP-UP SUGGESTIONS --- */}
         {results.length > 0 && (
-
           <Animated.View 
             entering={FadeIn.duration(200)} 
             style={styles.suggestionsWrapper}
           >
             <View style={{
                 borderRadius: 16,
-                padding: 12, // Add padding for content
+                padding: 12,
                 overflow: 'hidden',
                 maxHeight: 320,
                 backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
             }}>
-              {/* FIXED: Use Animated.ScrollView instead of AnimatedScrollView */}
               <Animated.ScrollView 
                 keyboardShouldPersistTaps="handled"
-                onScroll={handleScroll} // Attach handler
-                scrollEventThrottle={16} // Ensure smooth updates
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
               >
                 {results.map((item, index) => (
                   <Animated.View 
@@ -178,11 +178,9 @@ export function AnimatedSearch({
                       ]}
                       onPress={() => handleSelect(item)}
                     >
-                      
                       <View style={{ flex: 1, paddingVertical: 4 }}>
                         {item.type === 'verse' ? (
                           <>
-                             {/* Verse Text (Big & Top) */}
                              <Text 
                                style={[
                                  styles.itemLabel, 
@@ -192,8 +190,6 @@ export function AnimatedSearch({
                              >
                                {item.subLabel}
                              </Text>
-                             
-                             {/* Reference (Small & Bottom) */}
                              <Text style={[styles.itemSubLabel, { fontSize: 14 }]}>
                                {item.label}
                              </Text>
@@ -211,12 +207,10 @@ export function AnimatedSearch({
                           </>
                         )}
                       </View>
-
                     </Pressable>
                   </Animated.View>
                 ))}
 
-                {/* Optional: Show spinner at bottom when lazy loading */}
                 {loading && results.length > 0 && (
                    <View style={{ padding: 10 }}>
                       <ActivityIndicator size="small" color={Colors[theme].icon} />
@@ -235,8 +229,9 @@ const styles = StyleSheet.create({
   fullscreenOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // 4. CHANGED from 'center' to 'flex-start'
     alignItems: 'center',
+    // paddingTop is now handled dynamically in the inline style above
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -245,7 +240,7 @@ const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
-    marginBottom: 100, 
+    // marginBottom: 100, // 5. REMOVED (no longer needed since we are top-aligned)
   },
   searchBar: {
     flexDirection: 'row-reverse',
@@ -272,13 +267,13 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     borderBottomWidth: 1,
-    marginBottom: 8, // Add margin bottom
+    marginBottom: 8,
   },
   pressableItem: {
     flexDirection: 'row-reverse',
-    alignItems: 'flex-start', // Align icon to top
-    padding: 16, // Increase padding
-    paddingVertical: 18, // Extra vertical padding
+    alignItems: 'flex-start',
+    padding: 16,
+    paddingVertical: 18,
   },
   itemLabel: {
     fontSize: 16,

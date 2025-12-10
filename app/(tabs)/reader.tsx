@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SearchResult, useBibleChapter, useUnifiedSearch } from '@/hooks/useBible';
+import { toHebrewNumeral } from '@/utils/hebrewNumerals';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -211,7 +212,7 @@ export default function ReaderScreen() {
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title" style={{ fontSize: 24 }}>
-            {currentBook} {currentChapter}
+            {currentBook} {toHebrewNumeral(currentChapter)}
           </ThemedText>
         </View>
         
@@ -231,7 +232,7 @@ export default function ReaderScreen() {
                 const isSelected = selectedVerseIds.includes(verse.id);
                 return (
                   <React.Fragment key={verse.id}>
-                    <Text style={styles.verseNumber}> {verse.verse} </Text>
+                    <Text style={styles.verseNumber}> {toHebrewNumeral(verse.verse)} </Text>
                     <Text 
                       style={[
                         styles.verseContent, 
@@ -343,7 +344,6 @@ const styles = StyleSheet.create({
   verseContent: {
     fontSize: 28,
     lineHeight: 48,
-    // Tappable areas logic
   },
   fab: {
     position: 'absolute',

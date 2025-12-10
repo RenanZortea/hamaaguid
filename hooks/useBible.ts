@@ -1,3 +1,4 @@
+import { toHebrewNumeral } from '@/utils/hebrewNumerals';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -203,7 +204,7 @@ export function useUnifiedSearch(query: string) {
         ...verses.map((v) => ({
           type: 'verse' as const,
           id: v.id,
-          label: `${v.book_name} ${v.chapter}:${v.verse}`,
+          label: `${v.book_name} ${toHebrewNumeral(v.chapter)}:${toHebrewNumeral(v.verse)}`,
           subLabel: v.text,
           data: v
         }))
