@@ -112,3 +112,93 @@ export function useChapters(bookName: string) {
 
   return { chapters, loading };
 }
+
+// --- UNIFIED SEARCH ---
+
+export interface SearchResult {
+  type: 'book' | 'verse';
+  id: string | number;
+  label: string;      // For books: Book Name. For verses: "Book Ch:V"
+  subLabel?: string;  // For verses: The text preview
+  data?: any;         // The full object
+}
+
+// Helper to strip Nikkud in JS (for the search query input)
+function removeNikkud(text: string): string {
+  return text.replace(/[\u0591-\u05C7]/g, "");
+}
+
+export function useUnifiedSearch(query: string) {
+  const db = useSQLiteContext();
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query || query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const cleanQuery = removeNikkud(query.trim());
+        const wildCardQuery = `%${cleanQuery}%`;
+
+        // 1. Search Books (using the clean query against Book Names)
+        const booksPromise = db.getAllAsync<any>(
+          `SELECT מזהה as id, שם as name FROM ספרים 
+           WHERE שם LIKE ? OR מזהה LIKE ? 
+           LIMIT 5`,
+          [wildCardQuery, wildCardQuery]
+        );
+
+        // 2. Search Verses (searching the NEW 'clean_text' column)
+        const versesPromise = db.getAllAsync<any>(
+          `SELECT 
+             p.מזהה as id, 
+             s.שם as book_name, 
+             p.פרק as chapter, 
+             p.פסוק as verse, 
+             p.תוכן as text 
+           FROM פסוקים p 
+           JOIN ספרים s ON p.מזהה_ספר = s.מזהה
+           WHERE p.clean_text LIKE ? 
+           ORDER BY p.מזהה ASC
+           LIMIT 20`,
+          [wildCardQuery]
+        );
+
+        const [books, verses] = await Promise.all([booksPromise, versesPromise]);
+
+        // 3. Combine and Format Results
+        const formattedResults: SearchResult[] = [
+          ...books.map((b) => ({
+            type: 'book' as const,
+            id: b.id.toString(),
+            label: b.name,
+            subLabel: 'נווט לספר',
+            data: b
+          })),
+          ...verses.map((v) => ({
+            type: 'verse' as const,
+            id: v.id,
+            label: `${v.book_name} ${v.chapter}:${v.verse}`,
+            subLabel: v.text, // Matches are found, but we show original text
+            data: v
+          }))
+        ];
+
+        setResults(formattedResults);
+      } catch (e) {
+        console.error("Unified Search Error:", e);
+      } finally {
+        setLoading(false);
+      }
+    }, 400); // 400ms Debounce
+
+    return () => clearTimeout(timer);
+  }, [query, db]);
+
+  return { results, loading };
+}

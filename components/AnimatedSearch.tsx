@@ -2,6 +2,7 @@ import { GlassView } from '@/components/ui/GlassView';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { SearchResult, useUnifiedSearch } from '@/hooks/useBible';
 import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
@@ -24,35 +25,25 @@ import Animated, {
 const SPRING_CONFIG = { damping: 10, stiffness: 120 };
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface SearchItem {
-  id: string;
-  label: string;
-  subLabel?: string;
-}
-
 interface AnimatedSearchProps {
-  data: SearchItem[]; // Full list of data to filter
-  onSelect: (item: SearchItem) => void;
+  onSelect: (item: SearchResult) => void;
   onCancel?: () => void;
   placeholder?: string;
   visible?: boolean;
 }
 
-export function AnimatedSearch({ data, onSelect, onCancel, placeholder = "Search...", visible = true }: AnimatedSearchProps) {
+export function AnimatedSearch({ onSelect, onCancel, placeholder = "Search...", visible = true }: AnimatedSearchProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
 
   // State
+  // State
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   
-
-
-  // Filter Data
-  const filteredData = query
-    ? data.filter(item => item.label.toLowerCase().includes(query.toLowerCase()))
-    : [];
+  // Unified Search Hook
+  const { results, loading } = useUnifiedSearch(query);
 
   // --- BACK HANDLER ---
   useEffect(() => {
@@ -78,7 +69,7 @@ export function AnimatedSearch({ data, onSelect, onCancel, placeholder = "Search
     onCancel?.();
   };
 
-  const handleSelect = (item: SearchItem) => {
+  const handleSelect = (item: SearchResult) => {
     onSelect(item);
     handleBlur();
   };
@@ -126,7 +117,7 @@ export function AnimatedSearch({ data, onSelect, onCancel, placeholder = "Search
         </View>
 
         {/* --- POP-UP SUGGESTIONS --- */}
-        {isFocused && filteredData.length > 0 && (
+        {isFocused && (results.length > 0 || loading) && (
 
           <Animated.View 
             entering={FadeIn.duration(200)} 
@@ -134,14 +125,19 @@ export function AnimatedSearch({ data, onSelect, onCancel, placeholder = "Search
             style={styles.suggestionsWrapper}
           >
             <GlassView intensity={40} className="rounded-2xl overflow-hidden">
-              {filteredData.slice(0, 5).map((item, index) => (
-                <Animated.View 
-                  key={item.id}
+              {loading && results.length === 0 ? (
+                 <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: Colors[theme].text }}>מחפש...</Text>
+                 </View>
+              ) : (
+                results.map((item, index) => (
+                  <Animated.View 
+                    key={`${item.type}-${item.id}`}
                   layout={Layout.springify()} 
                   style={[
                     styles.itemRow,
                     { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
-                    index === filteredData.length - 1 && { borderBottomWidth: 0 }
+                    index === results.length - 1 && { borderBottomWidth: 0 }
                   ]}
                 >
                   <Pressable 
@@ -162,7 +158,8 @@ export function AnimatedSearch({ data, onSelect, onCancel, placeholder = "Search
                     <IconSymbol name="chevron.right" size={14} color="#8E8E93" style={{ marginLeft: 'auto' }} />
                   </Pressable>
                 </Animated.View>
-              ))}
+                ))
+              )}
             </GlassView>
           </Animated.View>
         )}

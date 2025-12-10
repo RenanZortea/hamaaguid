@@ -6,10 +6,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBibleChapter } from '@/hooks/useBible';
+import { SearchResult, useBibleChapter } from '@/hooks/useBible';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -94,38 +95,61 @@ const BIBLE_STRUCTURE: BibleCategory[] = [
       { id: 'יוחנן', label: 'יוחנן', chapters: 21 },
       { id: 'מעשים', label: 'מעשים', chapters: 28 },
       { id: 'רומים', label: 'רומים', chapters: 16 },
-      { id: '1 קורינתיים', label: '1 קורינתיים', chapters: 16 },
-      { id: '2 קורינתיים', label: '2 קורינתיים', chapters: 13 },
+      { id: 'קורינתיים א', label: 'קורינתיים א', chapters: 16 },
+      { id: 'קורינתיים ב', label: 'קורינתיים ב', chapters: 13 },
       { id: 'גלטים', label: 'גלטים', chapters: 6 },
       { id: 'אפסים', label: 'אפסים', chapters: 6 },
       { id: 'פיליפים', label: 'פיליפים', chapters: 4 },
       { id: 'קולוסים', label: 'קולוסים', chapters: 4 },
-      { id: '1 Thessalonikians', label: '1 תסלוניקים', chapters: 5 },
-      { id: '2 Thessalonikians', label: '2 תסלוניקים', chapters: 3 },
-      { id: '1 טימותיאוס', label: '1 טימותיאוס', chapters: 6 },
-      { id: '2 טימותיאוס', label: '2 טימותיאוס', chapters: 4 },
+      { id: 'תסלוניקים א', label: 'תסלוניקים א', chapters: 5 },
+      { id: 'תסלוניקים ב', label: 'תסלוניקים ב', chapters: 3 },
+      { id: 'טימותיאוס א', label: 'טימותיאוס א', chapters: 6 },
+      { id: 'טימותיאוס ב', label: 'טימותיאוס ב', chapters: 4 },
       { id: 'תיטוס', label: 'תיטוס', chapters: 3 },
       { id: 'פילימון', label: 'פילימון', chapters: 1 },
-      { id: 'הברית החדשה', label: 'עברים', chapters: 13 },
+      { id: 'עברים', label: 'עברים', chapters: 13 },
       { id: 'יעקב', label: 'יעקב', chapters: 5 },
-      { id: '1 פטרוס', label: '1 פטרוס', chapters: 5 },
-      { id: '2 פטרוס', label: '2 פטרוס', chapters: 3 },
-      { id: '1 יוחנן', label: '1 יוחנן', chapters: 5 },
-      { id: '2 יוחנן', label: '2 יוחנן', chapters: 1 },
-      { id: '3 יוחנן', label: '3 יוחנן', chapters: 1 },
+      { id: 'פטרוס א', label: 'פטרוס א', chapters: 5 },
+      { id: 'פטרוס ב', label: 'פטרוס ב', chapters: 3 },
+      { id: 'יוחנן א', label: 'יוחנן א', chapters: 5 },
+      { id: 'יוחנן ב', label: 'יוחנן ב', chapters: 1 },
+      { id: 'יוחנן ג', label: 'יוחנן ג', chapters: 1 },
       { id: 'יהודה', label: 'יהודה', chapters: 1 },
       { id: 'התגלות', label: 'התגלות', chapters: 22 },
     ],
-  }
+  },
 ];
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
+  const router = useRouter();
+  const params = useLocalSearchParams();
+
   const [currentBook, setCurrentBook] = useState('בראשית');
   const [currentChapter, setCurrentChapter] = useState(1);
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
+
+  // Handle Navigation Params (from Search)
+  useEffect(() => {
+    if (params.book) {
+      setCurrentBook(Array.isArray(params.book) ? params.book[0] : params.book);
+      if (params.chapter) {
+        setCurrentChapter(Number(params.chapter));
+      } else {
+        setCurrentChapter(1);
+      }
+      
+      if (params.highlightVerse) {
+        const verseNum = Number(params.highlightVerse);
+        // We can't select it here immediately because 'verses' might be loading.
+        // We'll rely on the user seeing the verse or we can try to select it after load.
+        // For now, let's just clear selection to be safe.
+        setSelectedVerseIds([]); 
+      }
+    }
+  }, [params.book, params.chapter, params.highlightVerse]);
 
   // Search State
   const [searchVisible, setSearchVisible] = useState(false);
@@ -244,16 +268,24 @@ export default function ReaderScreen() {
       />
       
       {/* SEARCH OVERLAY */}
+      {/* SEARCH OVERLAY */}
       <AnimatedSearch 
         visible={searchVisible}
-        data={[
-          { id: '1', label: 'Genesis', subLabel: 'The Beginning' },
-          { id: '2', label: 'Exodus', subLabel: 'Departure' },
-          { id: '3', label: 'Leviticus', subLabel: 'Laws' },
-          { id: '4', label: 'Numbers', subLabel: 'Census' },
-          { id: '5', label: 'Deuteronomy', subLabel: 'Second Law' },
-        ]}
-        onSelect={(item) => setSearchVisible(false)}
+        onSelect={(item: SearchResult) => {
+          setSearchVisible(false);
+          if (item.type === 'book') {
+            router.push({ pathname: '/(tabs)/reader', params: { book: item.label, chapter: 1 } });
+          } else {
+            router.push({ 
+              pathname: '/(tabs)/reader', 
+              params: { 
+                book: item.data.book_name, 
+                chapter: item.data.chapter,
+                highlightVerse: item.data.verse 
+              } 
+            });
+          }
+        }}
         onCancel={() => setSearchVisible(false)}
       />
     </ThemedView>
