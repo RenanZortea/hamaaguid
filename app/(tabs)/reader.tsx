@@ -216,7 +216,8 @@ export default function ReaderScreen() {
             style={{ 
               fontSize: 28, 
               fontFamily: 'TaameyFrank-Bold', // Use the specific Bold font family
-              fontWeight: 'normal'            // Override the default 'bold' weight to avoid fallback issues
+              fontWeight: 'normal',
+              marginTop: 10,
             }}
           >
             {currentBook} {toHebrewNumeral(currentChapter)}
