@@ -21,7 +21,7 @@ export function SearchBar(props: TextInputProps) {
       <TextInput
         className="flex-1 text-lg py-0 text-gray-900 dark:text-white"
         placeholderTextColor={placeholderColor}
-        placeholder="Search..."
+        placeholder="חיפוש..."
         {...props}
       />
     </View>

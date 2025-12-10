@@ -2,9 +2,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BookOpen, House } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -23,15 +23,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reader"
         options={{
-          title: 'Reader',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
+          title: 'תנך',
+          tabBarIcon: ({ color }) => <BookOpen size={28} color={color} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'בית',
+          tabBarIcon: ({ color }) => <House size={28} color={color} />,
         }}
       />
     </Tabs>
