@@ -40,11 +40,17 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  // --- UPDATED NAVIGATION BAR LOGIC ---
   useEffect(() => {
     if (Platform.OS === 'android') {
-      const backgroundColor = colorScheme === 'dark' ? '#151718' : '#ffffff';
+      // 1. Set the position to absolute so the app content (Tab Bar) draws behind it
+      NavigationBar.setPositionAsync('absolute');
+      
+      // 2. Set the background to fully transparent
+      NavigationBar.setBackgroundColorAsync('#ffffff00');
+      
+      // 3. Set the icon style (dark icons for light mode, light icons for dark mode)
       const buttonStyle = colorScheme === 'dark' ? 'light' : 'dark';
-      NavigationBar.setBackgroundColorAsync(backgroundColor);
       NavigationBar.setButtonStyleAsync(buttonStyle);
     }
   }, [colorScheme]);

@@ -4,7 +4,7 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { BookOpen, House } from 'lucide-react-native';
+import { BookOpen, Circle, House } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -20,6 +20,13 @@ export default function TabLayout() {
           borderTopColor: colorScheme === 'dark' ? '#404040' : '#e5e5e5',
         },
       }}>
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'פרופיל',
+          tabBarIcon: ({ color }) => <Circle size={28} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="reader"
         options={{
