@@ -66,11 +66,12 @@ export default function HomeScreen() {
             />
           </View>
           
-          {/* 3. Search Bar Trigger 
-              We wrap it in a Pressable and disable editing on the input itself
-              so it acts like a button to open the overlay.
-          */}
-          <Pressable onPress={() => setSearchVisible(true)}>
+          {/* 3. Search Bar Trigger */}
+          <Pressable 
+            onPress={() => setSearchVisible(true)}
+            // Hide opacity (invisible) but keep layout space to prevent jumps
+            style={{ opacity: searchVisible ? 0 : 1 }} 
+          >
             <View pointerEvents="none">
               <SearchBar editable={false} />
             </View>
