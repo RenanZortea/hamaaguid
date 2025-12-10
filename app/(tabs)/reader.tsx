@@ -125,7 +125,7 @@ export default function ReaderScreen() {
   const [currentBook, setCurrentBook] = useState('בראשית');
   const [currentChapter, setCurrentChapter] = useState(1);
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
-  const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
+  const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
 
   // Search State
   const [searchVisible, setSearchVisible] = useState(false);
@@ -136,21 +136,29 @@ export default function ReaderScreen() {
   const handleMenuSelect = (bookId: string, chapter: number) => {
     setCurrentBook(bookId);
     setCurrentChapter(chapter);
-    setSelectedVerseId(null);
+    setSelectedVerseIds([]);
     setIsDialogOpen(false);
   };
 
   const handleCopyVerse = async () => {
-    if (!selectedVerseId) return;
+    if (selectedVerseIds.length === 0) return;
     
-    const verse = verses.find(v => v.id === selectedVerseId);
-    if (verse) {
-      // Format: "Book Chapter:Verse - Text"
-      const textToCopy = `${currentBook} ${currentChapter}:${verse.verse}\n${verse.text}`;
+    // Get selected verses and sort by ID (assuming ID correlates to verse number order)
+    const selectedVerses = verses
+      .filter(v => selectedVerseIds.includes(v.id))
+      .sort((a, b) => a.id - b.id);
+
+    if (selectedVerses.length > 0) {
+      // Format: "Book Chapter:V1,V2,V3 - Text1 Text2 Text3"
+      const verseNumbers = selectedVerses.map(v => v.verse).join(',');
+      const versesText = selectedVerses.map(v => v.text).join(' ');
+      
+      const textToCopy = `${currentBook} ${currentChapter}:${verseNumbers}\n${versesText}`;
+      
       await ClipboardAPI.setStringAsync(textToCopy);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      setSelectedVerseId(null); // Close menu after copy
+      setSelectedVerseIds([]); // Close menu after copy
     }
   };
 
@@ -177,7 +185,7 @@ export default function ReaderScreen() {
           >
             <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
               {verses.map((verse) => {
-                const isSelected = selectedVerseId === verse.id;
+                const isSelected = selectedVerseIds.includes(verse.id);
                 return (
                   <React.Fragment key={verse.id}>
                     <Text style={styles.verseNumber}> {verse.verse} </Text>
@@ -188,7 +196,11 @@ export default function ReaderScreen() {
                       ]}
                       onPress={() => {
                         Haptics.selectionAsync();
-                        setSelectedVerseId(isSelected ? null : verse.id);
+                        setSelectedVerseIds(prev => 
+                          isSelected 
+                            ? prev.filter(id => id !== verse.id)
+                            : [...prev, verse.id]
+                        );
                       }}
                       suppressHighlighting={false}
                     >
@@ -205,13 +217,14 @@ export default function ReaderScreen() {
         
         {/* Copy Verse Menu - Shows when verse is selected */}
         <VerseActionMenu 
-          visible={selectedVerseId !== null}
+          visible={selectedVerseIds.length > 0}
           onCopy={handleCopyVerse}
-          onClose={() => setSelectedVerseId(null)}
+          onClose={() => setSelectedVerseIds([])}
+          selectedCount={selectedVerseIds.length}
         />
 
         {/* Trigger Button - Hides when verse is selected to reduce clutter */}
-        {selectedVerseId === null && (
+        {selectedVerseIds.length === 0 && (
           <View style={styles.fab}>
             <SelectVerseButton 
               label="נווט"

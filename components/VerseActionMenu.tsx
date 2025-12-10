@@ -10,9 +10,10 @@ interface VerseActionMenuProps {
   visible: boolean;
   onCopy: () => void;
   onClose: () => void;
+  selectedCount?: number;
 }
 
-export function VerseActionMenu({ visible, onCopy, onClose }: VerseActionMenuProps) {
+export function VerseActionMenu({ visible, onCopy, onClose, selectedCount = 1 }: VerseActionMenuProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   
@@ -20,8 +21,8 @@ export function VerseActionMenu({ visible, onCopy, onClose }: VerseActionMenuPro
 
   return (
     <Animated.View 
-      entering={FadeInDown.springify().damping(15)} 
-      exiting={FadeOutDown.springify().damping(15)}
+      entering={FadeInDown.springify().damping(25)} 
+      exiting={FadeOutDown.springify().damping(25)}
       style={styles.container}
     >
       <GlassView 
@@ -37,7 +38,7 @@ export function VerseActionMenu({ visible, onCopy, onClose }: VerseActionMenuPro
         >
           <Clipboard size={20} color={Colors[theme].text} />
           <Text style={[styles.actionText, { color: Colors[theme].text }]}>
-            העתק פסוק
+            {selectedCount > 1 ? 'העתק פסוקים' : 'העתק פסוק'}
           </Text>
         </TouchableOpacity>
 
