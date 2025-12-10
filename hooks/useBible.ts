@@ -1,4 +1,4 @@
-import { toHebrewNumeral } from '@/utils/hebrewNumerals';
+import { toHebrewNumeral, parseHebrewNumeral } from '@/utils/hebrewNumerals';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -142,6 +142,14 @@ export function useUnifiedSearch(query: string) {
   // Track the current query to prevent race conditions
   const currentQueryRef = useRef(query);
 
+  // Cache all book names for parsing navigation queries
+  const [allBooks, setAllBooks] = useState<string[]>([]);
+  useEffect(() => {
+    db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים').then(rows => {
+      setAllBooks(rows.map(r => r.שם));
+    }).catch(e => console.error("Failed to load books for search", e));
+  }, [db]);
+
   const fetchResults = useCallback(async (searchText: string, currentOffset: number, shouldReset: boolean) => {
     // If empty or too short, clear results
     if (!searchText || searchText.trim().length < 2) {
@@ -157,6 +165,81 @@ export function useUnifiedSearch(query: string) {
       
       const cleanQuery = removeNikkud(searchText.trim());
       const wildCardQuery = `%${cleanQuery}%`;
+
+      let navResult: SearchResult | null = null;
+      let usedNav = false;
+
+      // 0. Parse Direct Navigation (Only on first page)
+      if (currentOffset === 0 && allBooks.length > 0) {
+        // Sort books by length (desc) to ensure we match "Shmuel Aleph" before "Shmuel"
+        const sortedBooks = [...allBooks].sort((a, b) => b.length - a.length);
+        
+        for (const book of sortedBooks) {
+          if (cleanQuery.startsWith(book)) {
+            // Check remainder
+            const remainder = cleanQuery.slice(book.length).trim();
+            const parts = remainder.split(' ');
+            
+            if (parts.length > 0) {
+              const chapStr = parts[0];
+              const verseStr = parts.length > 1 ? parts[1] : null;
+
+              const chapNum = parseHebrewNumeral(chapStr);
+              if (chapNum > 0) {
+                // Determine what we are looking for
+                let sql = '';
+                let params: any[] = [];
+                let isVerseSpecific = false;
+
+                if (verseStr) {
+                  const verseNum = parseHebrewNumeral(verseStr);
+                  if (verseNum > 0) {
+                    // Look for specific verse
+                    sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? AND p.פסוק = ? LIMIT 1`;
+                    params = [book, chapNum, verseNum];
+                    isVerseSpecific = true;
+                  }
+                }
+                
+                if (!sql) {
+                   // Look for chapter existence (just get first verse)
+                   sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? LIMIT 1`;
+                   params = [book, chapNum];
+                }
+
+                const row = await db.getFirstAsync<{מזהה: number, תוכן: string}>(sql, params);
+                
+                if (row) {
+                  // If just chapter, use ID -1 to prevent highlighting a random verse, 
+                  // or use row.מזהה if we want to jump to beginning.
+                  // Reader expects ID for highlighting.
+                  const navId = isVerseSpecific ? row.מזהה : -1;
+                  const label = isVerseSpecific 
+                    ? `${book} ${toHebrewNumeral(chapNum)}:${toHebrewNumeral(parseHebrewNumeral(verseStr!))}`
+                    : `${book} ${toHebrewNumeral(chapNum)}`;
+
+                  navResult = {
+                    type: 'verse',
+                    id: `nav-${book}-${chapNum}-${verseStr || 'all'}`,
+                    label: label,
+                    subLabel: isVerseSpecific ? row.תוכן : 'נווט לפרק',
+                    data: {
+                      book_name: book,
+                      chapter: chapNum,
+                      verse: isVerseSpecific ? parseHebrewNumeral(verseStr!) : 1,
+                      id: navId,
+                      text: row.תוכן
+                    }
+                  };
+                  usedNav = true;
+                }
+              }
+            }
+            // If we matched the book prefix, we stop trying other books
+            break; 
+          }
+        }
+      }
 
       // 1. Search Books (Only on first page)
       let books: any[] = [];
@@ -193,7 +276,7 @@ export function useUnifiedSearch(query: string) {
       }
 
       // 3. Format Results
-      const newResults: SearchResult[] = [
+      const parsedResults: SearchResult[] = [
         ...books.map((b) => ({
           type: 'book' as const,
           id: b.id.toString(),
@@ -210,14 +293,19 @@ export function useUnifiedSearch(query: string) {
         }))
       ];
 
+      // Prepend navigation result if exists
+      if (navResult) {
+        parsedResults.unshift(navResult);
+      }
+
       if (shouldReset) {
-        setResults(newResults);
+        setResults(parsedResults);
         setLoading(false); // Ensure loading is false after reset
       } else {
         // Append unique results (filtering duplicates just in case)
         setResults(prev => {
           const existingIds = new Set(prev.map(i => i.id));
-          const uniqueNew = newResults.filter(i => !existingIds.has(i.id));
+          const uniqueNew = parsedResults.filter(i => !existingIds.has(i.id));
           return [...prev, ...uniqueNew];
         });
       }
@@ -229,7 +317,7 @@ export function useUnifiedSearch(query: string) {
       // If we are loading more, we might handle it differently but usually simpler is fine
       if (shouldReset) setLoading(false);
     }
-  }, [db]);
+  }, [db, allBooks]);
 
   // Initial Search / Query Change
   useEffect(() => {
