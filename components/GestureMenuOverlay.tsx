@@ -1,6 +1,6 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   SharedValue,
   runOnJS,
@@ -14,11 +14,11 @@ import Animated, {
 
 // --- CONFIGURATION ---
 const ITEM_HEIGHT = 45;
-const VISIBLE_ITEMS = 5;
+const VISIBLE_ITEMS = 9; // Increased for taller window
 const WINDOW_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
-const LEVEL_THRESHOLD = 80; // Drag X distance to switch columns
-const SENSITIVITY = 1.2; // Adjusted for better control
-const VERTICAL_OFFSET = -100; // Lifts the menu 100px ABOVE the finger
+const MID_INDEX = Math.floor(VISIBLE_ITEMS / 2); // 4
+const LEVEL_THRESHOLD = 80;
+const GEAR_THRESHOLD = 60; 
 
 // --- TYPES ---
 export interface BibleBook {
@@ -40,6 +40,8 @@ interface GestureMenuOverlayProps {
   data: BibleCategory[];
   onSelect: (bookId: string, chapter: number) => void;
 }
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSelect }: GestureMenuOverlayProps) {
   const colorScheme = useColorScheme() ?? 'light';
@@ -84,19 +86,56 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
       if (newLevel === 2) startScrollY.value = scrollY_2.value;
     }
 
-    // 2. HANDLE SCROLLING (Drag Up/Down)
-    const deltaY = (y - startY.value) * SENSITIVITY;
-    const targetScroll = startScrollY.value - deltaY;
-
+    // 2. CALCULATE "TURBO" SENSITIVITY
+    let activeItemCount = 0;
     if (activeLevel.value === 0) {
-      const max = (data.length - 1) * ITEM_HEIGHT;
+      activeItemCount = data.length;
+    } else if (activeLevel.value === 1) {
+      const cat = data[selectedCatIndex.value];
+      activeItemCount = cat ? cat.books.length : 0;
+    } else {
+      const cat = data[selectedCatIndex.value];
+      const book = cat?.books[selectedBookIndex.value];
+      activeItemCount = book ? book.chapters : 0;
+    }
+
+    // Calculate Raw Drag Distance
+    const rawDelta = y - startY.value;
+    const absDelta = Math.abs(rawDelta);
+    const direction = rawDelta > 0 ? 1 : -1;
+
+    // Two-Gear Logic
+    let effectiveDelta = 0;
+
+    if (activeItemCount <= 15) {
+        // Simple Linear for short lists
+        effectiveDelta = rawDelta * 1.2;
+    } else {
+        // Complex Gear for long lists
+        if (absDelta < GEAR_THRESHOLD) {
+            // Gear 1: Precision (1.0x)
+            effectiveDelta = rawDelta * 1.0;
+        } else {
+            // Gear 2: Turbo
+            const excessDrag = absDelta - GEAR_THRESHOLD;
+            const turboMultiplier = 2 + (activeItemCount / 20); 
+            
+            effectiveDelta = (GEAR_THRESHOLD * direction) + (excessDrag * direction * turboMultiplier);
+        }
+    }
+
+    const targetScroll = startScrollY.value - effectiveDelta;
+
+    // 3. APPLY SCROLL
+    if (activeLevel.value === 0) {
+      const max = Math.max(0, (data.length - 1) * ITEM_HEIGHT);
       scrollY_0.value = Math.max(0, Math.min(targetScroll, max));
       selectedCatIndex.value = Math.round(scrollY_0.value / ITEM_HEIGHT);
     } 
     else if (activeLevel.value === 1) {
       const cat = data[selectedCatIndex.value];
       if (cat) {
-        const max = (cat.books.length - 1) * ITEM_HEIGHT;
+        const max = Math.max(0, (cat.books.length - 1) * ITEM_HEIGHT);
         scrollY_1.value = Math.max(0, Math.min(targetScroll, max));
         selectedBookIndex.value = Math.round(scrollY_1.value / ITEM_HEIGHT);
       }
@@ -105,7 +144,7 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
       const cat = data[selectedCatIndex.value];
       const book = cat?.books[selectedBookIndex.value];
       if (book) {
-        const max = (book.chapters - 1) * ITEM_HEIGHT;
+        const max = Math.max(0, (book.chapters - 1) * ITEM_HEIGHT);
         scrollY_2.value = Math.max(0, Math.min(targetScroll, max));
         selectedChapterIndex.value = Math.round(scrollY_2.value / ITEM_HEIGHT);
       }
@@ -117,7 +156,6 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
     () => isOpen.value,
     (open, prev) => {
       if (!open && prev) {
-        // User lifted finger
         const cat = data[selectedCatIndex.value];
         const book = cat?.books[selectedBookIndex.value];
         if (book && activeLevel.value >= 1) {
@@ -125,7 +163,6 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
            runOnJS(onSelect)(book.id, chapter);
         }
       } else if (open && !prev) {
-        // Reset on Open
         activeLevel.value = 0;
         startY.value = 0;
         startScrollY.value = 0;
@@ -143,13 +180,18 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
     const isActive = activeLevel.value === level;
     const isPast = activeLevel.value > level;
     
-    // Position X: Cascading to the right
-    let targetX = origin.value.x;
-    if (level === 1) targetX += LEVEL_THRESHOLD + 10;
-    if (level === 2) targetX += (LEVEL_THRESHOLD * 2.4) + 20;
+    // STARTING POSITION: Center of Screen
+    const baseCenterX = (SCREEN_WIDTH - 140) / 2;
     
-    // Position Y: Lifted above finger
-    const targetY = origin.value.y - (WINDOW_HEIGHT / 2) + VERTICAL_OFFSET;
+    let targetX = baseCenterX;
+    
+    // Stagger logic to show hierarchy
+    if (level === 0) targetX = baseCenterX - 60;
+    if (level === 1) targetX = baseCenterX + 30; 
+    if (level === 2) targetX = baseCenterX + 120;
+
+    // Center vertically on screen, biased slightly upwards
+    const targetY = (SCREEN_HEIGHT - WINDOW_HEIGHT) / 2 - 50;
 
     return {
       transform: [
@@ -166,7 +208,6 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
 
   return (
     <Animated.View style={[styles.overlay, overlayStyle]}>
-      {/* Darker Dimmer */}
       <View style={styles.dimmer} />
 
       {/* --- COLUMN 0: CATEGORIES --- */}
@@ -210,8 +251,9 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
 // --- SUB COMPONENTS ---
 
 function ScrollableList({ items, scrollPos, isDark, labelKey = 'label' }: any) {
+  // Offset calc to center the list in the window
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -scrollPos.value + (ITEM_HEIGHT * 2) }] // Center in 5-item window
+    transform: [{ translateY: -scrollPos.value + (ITEM_HEIGHT * MID_INDEX) }] 
   }));
 
   return (
@@ -278,6 +320,8 @@ function SelectionHighlight({ isDark }: { isDark: boolean }) {
     <View style={[
       styles.highlight, 
       { 
+        // Position highlight in middle
+        top: ITEM_HEIGHT * MID_INDEX,
         borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
         backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
       }
@@ -292,7 +336,7 @@ const styles = StyleSheet.create({
   },
   dimmer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)', // Darker background
+    backgroundColor: 'rgba(0,0,0,0.6)', 
   },
   listWindow: {
     position: 'absolute',
@@ -328,7 +372,6 @@ const styles = StyleSheet.create({
   },
   highlight: {
     position: 'absolute',
-    top: ITEM_HEIGHT * 2,
     left: 0,
     right: 0,
     height: ITEM_HEIGHT,

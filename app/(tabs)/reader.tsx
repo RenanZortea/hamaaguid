@@ -1,4 +1,4 @@
-import { BibleCategory, GestureMenuOverlay } from '@/components/GestureMenuOverlay';
+import { BookSelectionDialog } from '@/components/BookSelectionDialog';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -7,8 +7,18 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter } from '@/hooks/useBible';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+export interface BibleBook {
+  id: string;
+  label: string;
+  chapters: number;
+}
+export interface BibleCategory {
+  id: string;
+  label: string;
+  books: BibleBook[];
+}
 
 // --- BIBLE STRUCTURE DATA ---
 const BIBLE_STRUCTURE: BibleCategory[] = [
@@ -79,16 +89,14 @@ export default function ReaderScreen() {
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
 
-  // Animation State
-  const isOpen = useSharedValue(false);
-  const touchX = useSharedValue(0);
-  const touchY = useSharedValue(0);
-  const origin = useSharedValue({ x: 0, y: 0 });
+  // Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleMenuSelect = (bookId: string, chapter: number) => {
     setCurrentBook(bookId);
     setCurrentChapter(chapter);
     setSelectedVerseId(null);
+    setIsDialogOpen(false);
   };
 
   return (
@@ -139,24 +147,17 @@ export default function ReaderScreen() {
         <View style={styles.fab}>
           <SelectVerseButton 
             label="נווט"
-            isOpen={isOpen}
-            touchX={touchX}
-            touchY={touchY}
-            origin={origin}
-            activeIndex={useSharedValue(-1)}
-            onFinalSelect={() => {}} 
+            onPress={() => setIsDialogOpen(true)}
           />
         </View>
       </SafeAreaView>
 
-      {/* OVERLAY: Must be last for z-index */}
-      <GestureMenuOverlay 
-        isOpen={isOpen}
-        touchX={touchX}
-        touchY={touchY}
-        origin={origin}
-        data={BIBLE_STRUCTURE}
+      {/* DIALOG */}
+      <BookSelectionDialog
+        visible={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
         onSelect={handleMenuSelect}
+        data={BIBLE_STRUCTURE}
       />
     </ThemedView>
   );

@@ -3,65 +3,28 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, SharedValue } from 'react-native-reanimated';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SelectVerseButtonProps {
   label?: string;
-  // Shared values passed down from parent
-  isOpen: SharedValue<boolean>;
-  touchX: SharedValue<number>;
-  touchY: SharedValue<number>;
-  origin: SharedValue<{ x: number; y: number }>;
-  activeIndex: SharedValue<number>;
-  onFinalSelect: () => void;
-  totalItems?: number;
+  onPress?: () => void;
 }
 
 export function SelectVerseButton({ 
-  label = 'בחר פסוק', 
-  isOpen, 
-  touchX, 
-  touchY, 
-  origin, 
-  activeIndex, 
-  onFinalSelect,
-  totalItems = 5
+  label = 'נווט', 
+  onPress,
 }: SelectVerseButtonProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const textColor = Colors[theme].text;
 
-  const haptic = () => {
-    'worklet';
-    runOnJS(Haptics.selectionAsync)();
+  const handlePress = () => {
+    Haptics.selectionAsync();
+    onPress?.();
   };
 
-  const pan = Gesture.Pan()
-    .activateAfterLongPress(300)
-    .onStart((e) => {
-      // Set the center of the menu to where the finger started
-      origin.value = { x: e.absoluteX, y: e.absoluteY - 50 }; // -50 to see it above finger
-      isOpen.value = true;
-      haptic();
-    })
-    .onUpdate((e) => {
-      touchX.value = e.translationX;
-      touchY.value = e.translationY;
-      
-
-    })
-    .onFinalize(() => {
-      if (isOpen.value && activeIndex.value !== -1) {
-        runOnJS(onFinalSelect)();
-      }
-      isOpen.value = false;
-      activeIndex.value = -1;
-    });
-
   return (
-    <GestureDetector gesture={pan}>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
       <View style={styles.container}>
         <GlassView 
           intensity={80} 
@@ -71,7 +34,7 @@ export function SelectVerseButton({
           <Text style={[styles.text, { color: textColor }]}>{label}</Text>
         </GlassView>
       </View>
-    </GestureDetector>
+    </TouchableOpacity>
   );
 }
 

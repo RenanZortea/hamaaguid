@@ -1,6 +1,6 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BlurView } from 'expo-blur';
-import { View, ViewProps } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
 
 interface GlassViewProps extends ViewProps {
   intensity?: number;
@@ -18,11 +18,10 @@ export function GlassView({ children, className, style, intensity = 20, tint, co
       style={style}
       {...props}
     >
-      <BlurView intensity={intensity} tint={effectiveTint} style={{ flex: 1 }}>
-        <View className={contentClassName ?? "p-4"}>
-          {children}
-        </View>
-      </BlurView>
+      <BlurView intensity={intensity} tint={effectiveTint} style={StyleSheet.absoluteFill} />
+      <View className={contentClassName ?? "p-4"}>
+        {children}
+      </View>
     </View>
   );
 }
