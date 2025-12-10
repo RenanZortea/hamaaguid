@@ -211,6 +211,19 @@ export default function ReaderScreen() {
     <ThemedView style={styles.container}>
       <PageTransition>
         <SafeAreaView style={styles.container} edges={['top']}>
+          
+          {/* Content */}
+          {loading ? (
+            <ThemedView style={styles.center}>
+              <ActivityIndicator size="large" color={Colors[theme].tint} />
+              <ThemedText style={styles.loadingText}>טוען...</ThemedText>
+            </ThemedView>
+          ) : (
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+
           {/* Header */}
           <View style={styles.header}>
             <ThemedText 
@@ -225,18 +238,6 @@ export default function ReaderScreen() {
               {currentBook} {toHebrewNumeral(currentChapter)}
             </ThemedText>
           </View>
-          
-          {/* Content */}
-          {loading ? (
-            <ThemedView style={styles.center}>
-              <ActivityIndicator size="large" color={Colors[theme].tint} />
-              <ThemedText style={styles.loadingText}>טוען...</ThemedText>
-            </ThemedView>
-          ) : (
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
               <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
                 {verses.map((verse) => {
                   const isSelected = selectedVerseIds.includes(verse.id);
