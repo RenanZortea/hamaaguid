@@ -4,13 +4,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBibleChapter, Verse } from '@/hooks/useBible';
+import { useBibleChapter } from '@/hooks/useBible';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// --- DATA STRUCTURE (Complete Bible) ---
+// --- BIBLE STRUCTURE DATA ---
 const BIBLE_STRUCTURE: BibleCategory[] = [
   {
     id: 'Torah',
@@ -73,6 +73,7 @@ const BIBLE_STRUCTURE: BibleCategory[] = [
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
+  const theme = colorScheme ?? 'light';
   const [currentBook, setCurrentBook] = useState('בראשית');
   const [currentChapter, setCurrentChapter] = useState(1);
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
@@ -84,16 +85,7 @@ export default function ReaderScreen() {
   const touchY = useSharedValue(0);
   const origin = useSharedValue({ x: 0, y: 0 });
 
-  const handleVersePress = (verse: Verse) => {
-    if (selectedVerseId === verse.id) {
-      setSelectedVerseId(null);
-    } else {
-      setSelectedVerseId(verse.id);
-    }
-  };
-
   const handleMenuSelect = (bookId: string, chapter: number) => {
-    console.log("Selected:", bookId, chapter);
     setCurrentBook(bookId);
     setCurrentChapter(chapter);
     setSelectedVerseId(null);
@@ -102,26 +94,36 @@ export default function ReaderScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="title">{currentBook} {currentChapter}</ThemedText>
+          <ThemedText type="title" style={{ fontSize: 24 }}>
+            {currentBook} {currentChapter}
+          </ThemedText>
         </View>
         
+        {/* Content */}
         {loading ? (
           <ThemedView style={styles.center}>
-            <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
+            <ActivityIndicator size="large" color={Colors[theme].tint} />
             <ThemedText style={styles.loadingText}>טוען...</ThemedText>
           </ThemedView>
         ) : (
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
               {verses.map((verse) => {
                 const isSelected = selectedVerseId === verse.id;
                 return (
                   <React.Fragment key={verse.id}>
                     <Text style={styles.verseNumber}> {verse.verse} </Text>
                     <Text 
-                      style={[styles.verseContent, isSelected && styles.selectedVerse]}
-                      onPress={() => handleVersePress(verse)}
+                      style={[
+                        styles.verseContent, 
+                        isSelected && { backgroundColor: theme === 'dark' ? '#554b2e' : '#fff3cd', color: theme === 'dark' ? '#fff' : '#000' }
+                      ]}
+                      onPress={() => setSelectedVerseId(isSelected ? null : verse.id)}
                       suppressHighlighting={false}
                     >
                       {verse.text}
@@ -133,21 +135,21 @@ export default function ReaderScreen() {
           </ScrollView>
         )}
 
-        {/* Floating Trigger Button */}
+        {/* Trigger Button */}
         <View style={styles.fab}>
           <SelectVerseButton 
-            label={`${currentBook} ${currentChapter}`}
+            label="נווט"
             isOpen={isOpen}
             touchX={touchX}
             touchY={touchY}
             origin={origin}
-            activeIndex={useSharedValue(-1)} // Not used in new menu, pass dummy
-            onFinalSelect={() => {}} // Logic moved to Overlay
+            activeIndex={useSharedValue(-1)}
+            onFinalSelect={() => {}} 
           />
         </View>
       </SafeAreaView>
 
-      {/* NEW Gesture Menu Overlay */}
+      {/* OVERLAY: Must be last for z-index */}
       <GestureMenuOverlay 
         isOpen={isOpen}
         touchX={touchX}
@@ -171,39 +173,40 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
+    opacity: 0.6,
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    alignItems: 'flex-end',
+    borderBottomColor: 'rgba(150,150,150,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 80,
+    padding: 20,
+    paddingBottom: 100, // Space for FAB
   },
   chapterText: {
     fontSize: 22,
-    lineHeight: 36,
+    lineHeight: 38,
     textAlign: 'right', // Align text to the right for Hebrew
-    writingDirection: 'rtl', // Ensure RTL handling
+    writingDirection: 'rtl',
+    fontFamily: 'System', // Or your custom Hebrew font
   },
   verseNumber: {
     fontSize: 14,
     color: '#888',
-    fontWeight: 'bold',
+    fontWeight: '700',
+    marginHorizontal: 4,
   },
   verseContent: {
-    // Inherits from chapterText
-  },
-  selectedVerse: {
-    backgroundColor: '#fff3cd', // Light yellow highlight
-    color: '#000',
+    // Tappable areas logic
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 30,
     left: 24,
-    zIndex: 100,
+    zIndex: 50,
   },
 });

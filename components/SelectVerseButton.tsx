@@ -50,26 +50,7 @@ export function SelectVerseButton({
       touchX.value = e.translationX;
       touchY.value = e.translationY;
       
-      // Calculate selection logic
-      const dist = Math.sqrt(e.translationX ** 2 + e.translationY ** 2);
-      if (dist > 30) {
-        let angle = Math.atan2(e.translationY, e.translationX);
-        if (angle < 0) angle += 2 * Math.PI;
-        // Adjust by +90deg (PI/2) to match visual rotation (starts from top)
-        let adjustedAngle = angle + Math.PI / 2;
-        if (adjustedAngle < 0) adjustedAngle += 2 * Math.PI;
-        if (adjustedAngle > 2 * Math.PI) adjustedAngle -= 2 * Math.PI;
 
-        const step = (2 * Math.PI) / totalItems;
-        const idx = Math.floor(adjustedAngle / step) % totalItems;
-        
-        if (activeIndex.value !== idx) {
-          activeIndex.value = idx;
-          haptic();
-        }
-      } else {
-        activeIndex.value = -1;
-      }
     })
     .onFinalize(() => {
       if (isOpen.value && activeIndex.value !== -1) {

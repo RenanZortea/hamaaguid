@@ -1,31 +1,35 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    SharedValue,
-    runOnJS,
-    useAnimatedReaction,
-    useAnimatedStyle,
-    useDerivedValue,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  SharedValue,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
-const ITEM_HEIGHT = 40;
-const COLUMN_WIDTH = 120;
-const LEVEL_THRESHOLD = 60; // How far right to drag to enter next level
+// --- CONFIGURATION ---
+const ITEM_HEIGHT = 45;
+const VISIBLE_ITEMS = 5;
+const WINDOW_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const LEVEL_THRESHOLD = 80; // Drag X distance to switch columns
+const SENSITIVITY = 1.2; // Adjusted for better control
+const VERTICAL_OFFSET = -100; // Lifts the menu 100px ABOVE the finger
 
-// Data Interfaces
+// --- TYPES ---
+export interface BibleBook {
+  id: string;
+  label: string;
+  chapters: number;
+}
 export interface BibleCategory {
   id: string;
   label: string;
   books: BibleBook[];
-}
-export interface BibleBook {
-  id: string; // The book name used in DB
-  label: string;
-  chapters: number;
 }
 
 interface GestureMenuOverlayProps {
@@ -41,208 +45,218 @@ export function GestureMenuOverlay({ isOpen, touchX, touchY, origin, data, onSel
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
 
-  // State to track locked selections
-  const activeLevel = useSharedValue(0); // 0 = Category, 1 = Book, 2 = Chapter
+  // --- STATE ---
+  const activeLevel = useSharedValue(0); // 0=Cat, 1=Book, 2=Chapter
+  
+  // Selection Indices
   const selectedCatIndex = useSharedValue(0);
   const selectedBookIndex = useSharedValue(0);
   const selectedChapterIndex = useSharedValue(0);
 
-  // Latch values: Where was the finger (Y) when we entered the level?
-  const level1EntryY = useSharedValue(0);
-  const level2EntryY = useSharedValue(0);
+  // Scroll Offsets (pixels)
+  const scrollY_0 = useSharedValue(0);
+  const scrollY_1 = useSharedValue(0);
+  const scrollY_2 = useSharedValue(0);
 
-  // Logic Loop
+  // Gesture Tracking
+  const startY = useSharedValue(0);
+  const startScrollY = useSharedValue(0);
+
+  // --- LOGIC LOOP ---
   useDerivedValue(() => {
     if (!isOpen.value) return;
 
     const x = touchX.value;
     const y = touchY.value;
 
-    // --- LEVEL 0: CATEGORY ---
-    if (x < LEVEL_THRESHOLD) {
-      activeLevel.value = 0;
-      // Map Y directly to Category Index
-      // We center the list at the origin, so 0 is the middle
-      const idx = Math.round(y / ITEM_HEIGHT);
-      // Clamp index
-      const clamped = Math.max(0, Math.min(idx, data.length - 1));
-      selectedCatIndex.value = clamped;
-    } 
-    
-    // --- LEVEL 1: BOOK ---
-    else if (x >= LEVEL_THRESHOLD && x < LEVEL_THRESHOLD * 2.5) {
-      // Transition detection: If we just entered Level 1, save the Entry Y offset
-      if (activeLevel.value === 0) {
-         level1EntryY.value = y; 
-      }
-      activeLevel.value = 1;
+    // 1. DETERMINE ACTIVE LEVEL (Drag Right)
+    let newLevel = 0;
+    if (x > LEVEL_THRESHOLD) newLevel = 1;
+    if (x > LEVEL_THRESHOLD * 2.4) newLevel = 2;
 
-      // Determine Book Index based on Relative Y from entry point
-      const relY = y - level1EntryY.value;
-      const cat = data[selectedCatIndex.value];
-      if (cat && cat.books.length > 0) {
-        const idx = Math.round(relY / ITEM_HEIGHT);
-        // Default to middle of list or top? Let's default to 0 being the start
-        // To make it feel natural, dragging DOWN selects lower items.
-        // We'll auto-select the first book on entry, then add relative movement.
-        const clamped = Math.max(0, Math.min(idx, cat.books.length - 1));
-        selectedBookIndex.value = clamped;
-      }
+    // Detect Level Change
+    if (newLevel !== activeLevel.value) {
+      activeLevel.value = newLevel;
+      // Reset start positions for smooth takeover
+      startY.value = y; 
+      if (newLevel === 0) startScrollY.value = scrollY_0.value;
+      if (newLevel === 1) startScrollY.value = scrollY_1.value;
+      if (newLevel === 2) startScrollY.value = scrollY_2.value;
     }
 
-    // --- LEVEL 2: CHAPTER ---
-    else if (x >= LEVEL_THRESHOLD * 2.5) {
-      if (activeLevel.value === 1) {
-        level2EntryY.value = y;
-      }
-      activeLevel.value = 2;
+    // 2. HANDLE SCROLLING (Drag Up/Down)
+    const deltaY = (y - startY.value) * SENSITIVITY;
+    const targetScroll = startScrollY.value - deltaY;
 
-      const relY = y - level2EntryY.value;
+    if (activeLevel.value === 0) {
+      const max = (data.length - 1) * ITEM_HEIGHT;
+      scrollY_0.value = Math.max(0, Math.min(targetScroll, max));
+      selectedCatIndex.value = Math.round(scrollY_0.value / ITEM_HEIGHT);
+    } 
+    else if (activeLevel.value === 1) {
+      const cat = data[selectedCatIndex.value];
+      if (cat) {
+        const max = (cat.books.length - 1) * ITEM_HEIGHT;
+        scrollY_1.value = Math.max(0, Math.min(targetScroll, max));
+        selectedBookIndex.value = Math.round(scrollY_1.value / ITEM_HEIGHT);
+      }
+    } 
+    else if (activeLevel.value === 2) {
       const cat = data[selectedCatIndex.value];
       const book = cat?.books[selectedBookIndex.value];
-      
       if (book) {
-        // Calculate total chapters (assuming 1-based index)
-        const idx = Math.round(relY / ITEM_HEIGHT);
-        const clamped = Math.max(0, Math.min(idx, book.chapters - 1));
-        selectedChapterIndex.value = clamped;
+        const max = (book.chapters - 1) * ITEM_HEIGHT;
+        scrollY_2.value = Math.max(0, Math.min(targetScroll, max));
+        selectedChapterIndex.value = Math.round(scrollY_2.value / ITEM_HEIGHT);
       }
     }
   });
 
-  // Handle Final Selection on Release
+  // --- FINALIZE SELECTION ---
   useAnimatedReaction(
     () => isOpen.value,
     (open, prev) => {
       if (!open && prev) {
-        // User released finger
-        if (activeLevel.value === 2) {
-          const cat = data[selectedCatIndex.value];
-          const book = cat?.books[selectedBookIndex.value];
-          if (book) {
-            const chapter = selectedChapterIndex.value + 1; // 1-based
-            runOnJS(onSelect)(book.id, chapter);
-          }
-        } else if (activeLevel.value === 1) {
-            // Optional: Allow selecting just a book (default ch 1)
-            const cat = data[selectedCatIndex.value];
-            const book = cat?.books[selectedBookIndex.value];
-            if(book) runOnJS(onSelect)(book.id, 1);
+        // User lifted finger
+        const cat = data[selectedCatIndex.value];
+        const book = cat?.books[selectedBookIndex.value];
+        if (book && activeLevel.value >= 1) {
+           const chapter = activeLevel.value === 2 ? selectedChapterIndex.value + 1 : 1;
+           runOnJS(onSelect)(book.id, chapter);
         }
+      } else if (open && !prev) {
+        // Reset on Open
+        activeLevel.value = 0;
+        startY.value = 0;
+        startScrollY.value = 0;
       }
     }
   );
 
-  const containerStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isOpen.value ? 1 : 0),
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(isOpen.value ? 1 : 0, { duration: 150 }),
     pointerEvents: isOpen.value ? 'auto' : 'none',
   }));
 
-  // Dynamic Styles for Columns
-  const level0Style = useAnimatedStyle(() => {
-    const isActive = activeLevel.value >= 0;
-    return {
-      opacity: withTiming(isActive ? 1 : 0.5),
-      transform: [
-        { translateX: origin.value.x - COLUMN_WIDTH / 2 }, // Centered on finger initially
-        { translateY: origin.value.y },
-        { scale: withSpring(activeLevel.value === 0 ? 1 : 0.8) }
-      ],
-    };
-  });
+  // Helper for Window Styles
+  const getWindowStyle = (level: number) => useAnimatedStyle(() => {
+    const isActive = activeLevel.value === level;
+    const isPast = activeLevel.value > level;
+    
+    // Position X: Cascading to the right
+    let targetX = origin.value.x;
+    if (level === 1) targetX += LEVEL_THRESHOLD + 10;
+    if (level === 2) targetX += (LEVEL_THRESHOLD * 2.4) + 20;
+    
+    // Position Y: Lifted above finger
+    const targetY = origin.value.y - (WINDOW_HEIGHT / 2) + VERTICAL_OFFSET;
 
-  const level1Style = useAnimatedStyle(() => {
-    const isActive = activeLevel.value >= 1;
     return {
-      opacity: withTiming(isActive ? 1 : 0),
       transform: [
-        { translateX: origin.value.x + LEVEL_THRESHOLD }, // Shifted Right
-        { translateY: origin.value.y + (activeLevel.value >= 1 ? level1EntryY.value : 0) }, // Anchored to where we entered
-        { scale: withSpring(activeLevel.value === 1 ? 1 : 0.8) }
+        { translateX: withSpring(targetX, { damping: 15, stiffness: 100 }) },
+        { translateY: withSpring(targetY, { damping: 15, stiffness: 100 }) },
+        { scale: withSpring(isActive ? 1.05 : isPast ? 0.95 : 0.8) },
       ],
-    };
-  });
-
-  const level2Style = useAnimatedStyle(() => {
-    const isActive = activeLevel.value >= 2;
-    return {
-      opacity: withTiming(isActive ? 1 : 0),
-      transform: [
-        { translateX: origin.value.x + LEVEL_THRESHOLD * 2.5 }, // Shifted Right again
-        { translateY: origin.value.y + (activeLevel.value >= 2 ? level2EntryY.value : 0) },
-        { scale: withSpring(activeLevel.value === 2 ? 1 : 0.8) }
-      ],
+      opacity: withTiming(isActive || isPast ? 1 : 0),
+      zIndex: isActive ? 100 : 10,
+      backgroundColor: isDark ? 'rgba(30,30,30,0.95)' : 'rgba(250,250,250,0.98)',
+      borderColor: isDark ? 'rgba(80,80,80,0.5)' : 'rgba(200,200,200,0.5)',
     };
   });
 
   return (
-    <Animated.View style={[styles.overlay, containerStyle]}>
-      <Animated.View style={styles.dimmer} />
+    <Animated.View style={[styles.overlay, overlayStyle]}>
+      {/* Darker Dimmer */}
+      <View style={styles.dimmer} />
 
-      {/* Categories Column */}
-      <Animated.View style={[styles.columnContainer, level0Style]}>
-        {data.map((cat, i) => (
-          <ListItem 
-            key={cat.id} 
-            label={cat.label} 
-            index={i} 
-            activeIndex={selectedCatIndex} 
-            isDark={isDark} 
-          />
-        ))}
+      {/* --- COLUMN 0: CATEGORIES --- */}
+      <Animated.View style={[styles.listWindow, getWindowStyle(0)]}>
+        <ScrollableList 
+          items={data} 
+          scrollPos={scrollY_0} 
+          isDark={isDark} 
+          labelKey="label"
+        />
+        <SelectionHighlight isDark={isDark} />
       </Animated.View>
 
-      {/* Books Column (Dependent on Category Selection) */}
-      <Animated.View style={[styles.columnContainer, level1Style]}>
-        <BooksList 
-          data={data} 
-          catIndex={selectedCatIndex} 
-          bookIndex={selectedBookIndex}
-          isDark={isDark}
+      {/* --- COLUMN 1: BOOKS --- */}
+      <Animated.View style={[styles.listWindow, getWindowStyle(1)]}>
+        <ReactiveBookList 
+           data={data} 
+           catIndex={selectedCatIndex} 
+           scrollPos={scrollY_1} 
+           isDark={isDark} 
         />
+        <SelectionHighlight isDark={isDark} />
       </Animated.View>
 
-      {/* Chapters Column (Dependent on Book Selection) */}
-      <Animated.View style={[styles.columnContainer, level2Style]}>
-        <ChaptersList
-            data={data}
-            catIndex={selectedCatIndex}
-            bookIndex={selectedBookIndex}
-            chapterIndex={selectedChapterIndex}
-            isDark={isDark}
+      {/* --- COLUMN 2: CHAPTERS --- */}
+      <Animated.View style={[styles.listWindow, getWindowStyle(2)]}>
+        <ReactiveChapterList 
+           data={data} 
+           catIndex={selectedCatIndex} 
+           bookIndex={selectedBookIndex}
+           scrollPos={scrollY_2} 
+           isDark={isDark} 
         />
+        <SelectionHighlight isDark={isDark} />
       </Animated.View>
 
     </Animated.View>
   );
 }
 
-// Sub-components to render lists reactively
-function BooksList({ data, catIndex, bookIndex, isDark }: any) {
-  // SOLUTION: We map the *entire* tree, but hide inactive ones with opacity.
+// --- SUB COMPONENTS ---
+
+function ScrollableList({ items, scrollPos, isDark, labelKey = 'label' }: any) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -scrollPos.value + (ITEM_HEIGHT * 2) }] // Center in 5-item window
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      {items.map((item: any, i: number) => (
+        <View key={i} style={styles.item}>
+          <Text 
+            style={[
+              styles.text, 
+              { color: isDark ? '#EEE' : '#111' }
+            ]}
+            numberOfLines={1}
+          >
+            {item[labelKey] || item}
+          </Text>
+        </View>
+      ))}
+    </Animated.View>
+  );
+}
+
+function ReactiveBookList({ data, catIndex, scrollPos, isDark }: any) {
   return (
     <>
-      {data.map((cat: any, cIdx: number) => (
-        <AnimatedListWrapper key={cat.id} visibleIndex={catIndex} myIndex={cIdx}>
-           {cat.books.map((book: any, bIdx: number) => (
-             <ListItem key={book.id} label={book.label} index={bIdx} activeIndex={bookIndex} isDark={isDark} />
-           ))}
+      {data.map((cat: any, i: number) => (
+        <AnimatedListWrapper key={i} visibleIndex={catIndex} myIndex={i}>
+           <ScrollableList items={cat.books} scrollPos={scrollPos} isDark={isDark} />
         </AnimatedListWrapper>
       ))}
     </>
   );
 }
 
-function ChaptersList({ data, catIndex, bookIndex, chapterIndex, isDark }: any) {
+function ReactiveChapterList({ data, catIndex, bookIndex, scrollPos, isDark }: any) {
   return (
     <>
       {data.map((cat: any, cIdx: number) => (
-        <AnimatedListWrapper key={cat.id} visibleIndex={catIndex} myIndex={cIdx}>
+        <AnimatedListWrapper key={`c-${cIdx}`} visibleIndex={catIndex} myIndex={cIdx}>
            {cat.books.map((book: any, bIdx: number) => (
-             <AnimatedListWrapper key={book.id} visibleIndex={bookIndex} myIndex={bIdx}>
-                {Array.from({ length: book.chapters }).map((_, chIdx) => (
-                    <ListItem key={chIdx} label={`${chIdx + 1}`} index={chIdx} activeIndex={chapterIndex} isDark={isDark} />
-                ))}
+             <AnimatedListWrapper key={`b-${bIdx}`} visibleIndex={bookIndex} myIndex={bIdx}>
+                <ScrollableList 
+                  items={Array.from({length: book.chapters}, (_, k) => k + 1)} 
+                  scrollPos={scrollPos} 
+                  isDark={isDark} 
+                />
              </AnimatedListWrapper>
            ))}
         </AnimatedListWrapper>
@@ -252,26 +266,22 @@ function ChaptersList({ data, catIndex, bookIndex, chapterIndex, isDark }: any) 
 }
 
 function AnimatedListWrapper({ children, visibleIndex, myIndex }: any) {
-    const style = useAnimatedStyle(() => ({
-        display: visibleIndex.value === myIndex ? 'flex' : 'none',
-    }));
-    return <Animated.View style={[styles.stack, style]}>{children}</Animated.View>;
+  const style = useAnimatedStyle(() => ({
+    opacity: visibleIndex.value === myIndex ? 1 : 0,
+    display: visibleIndex.value === myIndex ? 'flex' : 'none',
+  }));
+  return <Animated.View style={[styles.wrapper, style]}>{children}</Animated.View>;
 }
 
-function ListItem({ label, index, activeIndex, isDark }: any) {
-  const style = useAnimatedStyle(() => {
-    const isActive = activeIndex.value === index;
-    return {
-      backgroundColor: isActive ? (isDark ? '#444' : '#eee') : 'transparent',
-      transform: [{ scale: withSpring(isActive ? 1.1 : 1) }],
-      opacity: withSpring(isActive ? 1 : 0.6),
-    };
-  });
-
+function SelectionHighlight({ isDark }: { isDark: boolean }) {
   return (
-    <Animated.View style={[styles.item, style]}>
-      <Text style={[styles.text, { color: isDark ? '#fff' : '#000' }]}>{label}</Text>
-    </Animated.View>
+    <View style={[
+      styles.highlight, 
+      { 
+        borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+      }
+    ]} />
   );
 }
 
@@ -282,34 +292,48 @@ const styles = StyleSheet.create({
   },
   dimmer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)', // Darker background
   },
-  columnContainer: {
+  listWindow: {
     position: 'absolute',
+    width: 140,
+    height: WINDOW_HEIGHT,
+    borderRadius: 16,
+    overflow: 'hidden',
     top: 0,
     left: 0,
-    width: COLUMN_WIDTH,
-    // Center the list vertically around the point?
-    // We actually want the `translateY` to move the list so the selected item is under the finger?
-    // Currently, `translateY` moves the WHOLE container. 
-    // To center: marginTop: -ITEM_HEIGHT / 2?
-    justifyContent: 'center', // This might conflict with absolute positioning logic
-  },
-  stack: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 20,
+    borderWidth: 1,
   },
   item: {
     height: ITEM_HEIGHT,
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginVertical: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   text: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  wrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  highlight: {
+    position: 'absolute',
+    top: ITEM_HEIGHT * 2,
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    pointerEvents: 'none',
   }
 });
