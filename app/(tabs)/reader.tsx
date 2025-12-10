@@ -1,3 +1,4 @@
+import { RadialMenuOverlay } from '@/components/RadialMenuOverlay';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -6,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter, Verse } from '@/hooks/useBible';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReaderScreen() {
@@ -14,6 +16,22 @@ export default function ReaderScreen() {
   const [currentChapter, setCurrentChapter] = useState(1);
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
+
+  // Animation State for Radial Menu
+  const isOpen = useSharedValue(false);
+  const touchX = useSharedValue(0);
+  const touchY = useSharedValue(0);
+  const origin = useSharedValue({ x: 0, y: 0 });
+  const activeIndex = useSharedValue(-1);
+
+  // Menu Items (Torah)
+  const menuItems = [
+    { label: 'בראשית', id: 'בראשית' },
+    { label: 'שמות', id: 'שמות' },
+    { label: 'ויקרא', id: 'ויקרא' },
+    { label: 'במדבר', id: 'במדבר' },
+    { label: 'דברים', id: 'דברים' },
+  ];
 
   const handleVersePress = (verse: Verse) => {
     if (selectedVerseId === verse.id) {
@@ -24,10 +42,15 @@ export default function ReaderScreen() {
     }
   };
 
-  const handleChapterSelect = (bookId: string, chapter: number) => {
-    setCurrentBook(bookId);
-    setCurrentChapter(chapter);
-    setSelectedVerseId(null); // Reset selection on change
+  const handleRadialSelect = () => {
+    const idx = activeIndex.value;
+    if (idx >= 0 && idx < menuItems.length) {
+      const selected = menuItems[idx];
+      console.log("Selected:", selected.id);
+      setCurrentBook(selected.id);
+      setCurrentChapter(1); // Reset to chapter 1
+      setSelectedVerseId(null); // Reset selection on change
+    }
   };
 
   return (
@@ -71,13 +94,30 @@ export default function ReaderScreen() {
           </ScrollView>
         )}
 
-        <SelectVerseButton 
-          onChapterSelect={handleChapterSelect}
-          label={`${currentBook} ${currentChapter}`}
-          currentBook={currentBook}
-          currentChapter={currentChapter}
-        />
+        {/* The Button (Pass shared values) */}
+        <View style={styles.fab}>
+          <SelectVerseButton 
+            label={`${currentBook} ${currentChapter}`}
+            isOpen={isOpen}
+            touchX={touchX}
+            touchY={touchY}
+            origin={origin}
+            activeIndex={activeIndex}
+            onFinalSelect={handleRadialSelect}
+            totalItems={menuItems.length}
+          />
+        </View>
       </SafeAreaView>
+
+      {/* The Overlay (Must be last to be on top) */}
+      <RadialMenuOverlay 
+        isOpen={isOpen}
+        touchX={touchX}
+        touchY={touchY}
+        origin={origin}
+        activeIndex={activeIndex}
+        items={menuItems}
+      />
     </ThemedView>
   );
 }
@@ -122,7 +162,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff3cd', // Light yellow highlight
     color: '#000',
   },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    zIndex: 100,
+  },
 });
-
-
-
