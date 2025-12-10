@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.renanzortea.hamaaguid"
+      "bundleIdentifier": "com.hamaaguid.hamaaguid"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-      "package": "com.renanzortea.hamaaguid",
+      "package": "com.hamaaguid.hamaaguid",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
