@@ -10,7 +10,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
-  const { verses, loading } = useBibleChapter('Genesis', 1);
+  const [currentBook, setCurrentBook] = useState('Genesis');
+  const [currentChapter, setCurrentChapter] = useState(1);
+  const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
 
   const handleVersePress = (verse: Verse) => {
@@ -22,54 +24,59 @@ export default function ReaderScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <ThemedView style={styles.center}>
-        <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
-        <ThemedText style={styles.loadingText}>טוען...</ThemedText>
-      </ThemedView>
-    );
-  }
+  const handleChapterSelect = (bookId: string, chapter: number) => {
+    setCurrentBook(bookId);
+    setCurrentChapter(chapter);
+    setSelectedVerseId(null); // Reset selection on change
+  };
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <ThemedText type="title">בראשית א</ThemedText>
+          <ThemedText type="title">{currentBook} {currentChapter}</ThemedText>
         </View>
         
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
-            {verses.map((verse) => {
-              const isSelected = selectedVerseId === verse.id;
-              
-              return (
-                <React.Fragment key={verse.id}>
-                  {/* Verse Number - NOT clickable */}
-                  <Text style={styles.verseNumber}> {verse.verse} </Text>
-                  
-                  {/* Verse Text - CLICKABLE */}
-                  <Text 
-                    style={[
-                      styles.verseContent, 
-                      isSelected && styles.selectedVerse
-                    ]}
-                    onPress={() => handleVersePress(verse)}
-                    suppressHighlighting={false}
-                  >
-                    {verse.text}
-                  </Text>
-                </React.Fragment>
-              );
-            })}
-          </Text>
-        </ScrollView>
-        
+        {loading ? (
+          <ThemedView style={styles.center}>
+            <ActivityIndicator size="large" color={Colors[colorScheme ?? 'light'].tint} />
+            <ThemedText style={styles.loadingText}>טוען...</ThemedText>
+          </ThemedView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
+              {verses.map((verse) => {
+                const isSelected = selectedVerseId === verse.id;
+                
+                return (
+                  <React.Fragment key={verse.id}>
+                    {/* Verse Number - NOT clickable */}
+                    <Text style={styles.verseNumber}> {verse.verse} </Text>
+                    
+                    {/* Verse Text - CLICKABLE */}
+                    <Text 
+                      style={[
+                        styles.verseContent, 
+                        isSelected && styles.selectedVerse
+                      ]}
+                      onPress={() => handleVersePress(verse)}
+                      suppressHighlighting={false}
+                    >
+                      {verse.text}
+                    </Text>
+                  </React.Fragment>
+                );
+              })}
+            </Text>
+          </ScrollView>
+        )}
 
-        
         <SelectVerseButton 
           style={styles.fab}
-          onPress={() => alert('Select Verse')}
+          onChapterSelect={handleChapterSelect}
+          label={`${currentBook} ${currentChapter}`}
+          currentBook={currentBook}
+          currentChapter={currentChapter}
         />
       </SafeAreaView>
     </ThemedView>
@@ -101,8 +108,8 @@ const styles = StyleSheet.create({
   chapterText: {
     fontSize: 22,
     lineHeight: 36,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    textAlign: 'right', // Align text to the right for Hebrew
+    writingDirection: 'rtl', // Ensure RTL handling
   },
   verseNumber: {
     fontSize: 14,
@@ -119,7 +126,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: 24,
-    alignSelf: 'center',
+    left: 24,
   },
 });
 

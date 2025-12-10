@@ -5,9 +5,10 @@ import { View, ViewProps } from 'react-native';
 interface GlassViewProps extends ViewProps {
   intensity?: number;
   tint?: 'light' | 'dark' | 'default';
+  contentClassName?: string;
 }
 
-export function GlassView({ children, className, style, intensity = 20, tint, ...props }: GlassViewProps) {
+export function GlassView({ children, className, style, intensity = 20, tint, contentClassName, ...props }: GlassViewProps) {
   const colorScheme = useColorScheme();
   const effectiveTint = tint || (colorScheme === 'dark' ? 'dark' : 'light');
 
@@ -18,7 +19,7 @@ export function GlassView({ children, className, style, intensity = 20, tint, ..
       {...props}
     >
       <BlurView intensity={intensity} tint={effectiveTint} style={{ flex: 1 }}>
-        <View className="p-4">
+        <View className={contentClassName ?? "p-4"}>
           {children}
         </View>
       </BlurView>
