@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { SearchResult, useBibleChapter } from '@/hooks/useBible';
+import { SearchResult, useBibleChapter, useUnifiedSearch } from '@/hooks/useBible';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -131,6 +131,10 @@ export default function ReaderScreen() {
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
 
+  // 1. Setup Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const { results: searchResults, loading: searchLoading } = useUnifiedSearch(searchQuery);
+
   // Handle Navigation Params (from Search)
   useEffect(() => {
     if (params.book) {
@@ -142,7 +146,6 @@ export default function ReaderScreen() {
       }
       
       if (params.highlightVerse) {
-        const verseNum = Number(params.highlightVerse);
         // We can't select it here immediately because 'verses' might be loading.
         // We'll rely on the user seeing the verse or we can try to select it after load.
         // For now, let's just clear selection to be safe.
@@ -184,6 +187,22 @@ export default function ReaderScreen() {
       
       setSelectedVerseIds([]); // Close menu after copy
     }
+  };
+
+  const handleSearchSelect = (item: SearchResult) => {
+    if (item.type === 'book') {
+      // item.data is the book object: { id, name }
+      setCurrentBook(item.label);
+      setCurrentChapter(1);
+    } else {
+      // item.data is the verse object: { id, book_name, chapter, verse, text }
+      setCurrentBook(item.data.book_name);
+      setCurrentChapter(item.data.chapter);
+      // Select the verse
+      setSelectedVerseIds([item.data.id]);
+    }
+    setSearchVisible(false);
+    setSearchQuery('');
   };
 
   return (
@@ -268,25 +287,16 @@ export default function ReaderScreen() {
       />
       
       {/* SEARCH OVERLAY */}
-      {/* SEARCH OVERLAY */}
       <AnimatedSearch 
         visible={searchVisible}
-        onSelect={(item: SearchResult) => {
+        onCancel={() => {
           setSearchVisible(false);
-          if (item.type === 'book') {
-            router.push({ pathname: '/(tabs)/reader', params: { book: item.label, chapter: 1 } });
-          } else {
-            router.push({ 
-              pathname: '/(tabs)/reader', 
-              params: { 
-                book: item.data.book_name, 
-                chapter: item.data.chapter,
-                highlightVerse: item.data.verse 
-              } 
-            });
-          }
+          setSearchQuery('');
         }}
-        onCancel={() => setSearchVisible(false)}
+        results={searchResults}
+        loading={searchLoading}
+        onSearchChange={setSearchQuery}
+        onSelect={handleSearchSelect}
       />
     </ThemedView>
   );

@@ -2,9 +2,10 @@ import { GlassView } from '@/components/ui/GlassView';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { SearchResult, useUnifiedSearch } from '@/hooks/useBible';
+import { SearchResult } from '@/hooks/useBible';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   Dimensions,
   Keyboard,
@@ -16,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  ScrollView as AnimatedScrollView,
   FadeIn,
   FadeOut,
   Layout
@@ -25,25 +27,39 @@ import Animated, {
 const SPRING_CONFIG = { damping: 10, stiffness: 120 };
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface AnimatedSearchProps {
+export interface AnimatedSearchProps {
+  visible: boolean;
+  onCancel: () => void;
   onSelect: (item: SearchResult) => void;
-  onCancel?: () => void;
+  results: SearchResult[];
+  loading: boolean;
+  onSearchChange: (text: string) => void;
   placeholder?: string;
-  visible?: boolean;
 }
 
-export function AnimatedSearch({ onSelect, onCancel, placeholder = "Search...", visible = true }: AnimatedSearchProps) {
+export function AnimatedSearch({ 
+  visible, 
+  onCancel, 
+  onSelect, 
+  results, 
+  loading, 
+  onSearchChange,
+  placeholder = "חפש ספר, פסוק או מילה..."
+}: AnimatedSearchProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
 
   // State
-  // State
   const [query, setQuery] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   
-  // Unified Search Hook
-  const { results, loading } = useUnifiedSearch(query);
+
+
+  // Update parent when text changes
+  const handleTextChange = (text: string) => {
+    setQuery(text);
+    onSearchChange(text);
+  };
 
   // --- BACK HANDLER ---
   useEffect(() => {
@@ -58,14 +74,10 @@ export function AnimatedSearch({ onSelect, onCancel, placeholder = "Search...", 
   }, [visible]);
 
   // --- HANDLERS ---
-  const handleFocus = () => {
-    setIsFocused(true);
-  };
-
   const handleBlur = () => {
     Keyboard.dismiss();
-    setIsFocused(false);
     setQuery('');
+    onSearchChange(''); // Reset parent query
     onCancel?.();
   };
 
@@ -105,61 +117,69 @@ export function AnimatedSearch({ onSelect, onCancel, placeholder = "Search...", 
             placeholder={placeholder}
             placeholderTextColor="#8E8E93"
             value={query}
-            onChangeText={setQuery}
-            onFocus={handleFocus}
+            onChangeText={handleTextChange}
             autoFocus={true}
+            textAlign="right" // Hebrew support
           />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')}>
+          
+          {loading ? (
+             <ActivityIndicator size="small" color={Colors[theme].icon} />
+          ) : query.length > 0 ? (
+            <TouchableOpacity onPress={() => handleTextChange('')}>
                <IconSymbol name="xmark.circle.fill" size={16} color="#8E8E93" />
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
         {/* --- POP-UP SUGGESTIONS --- */}
-        {isFocused && (results.length > 0 || loading) && (
+        {results.length > 0 && (
 
           <Animated.View 
             entering={FadeIn.duration(200)} 
-            exiting={FadeOut.duration(150)}
             style={styles.suggestionsWrapper}
           >
-            <GlassView intensity={40} className="rounded-2xl overflow-hidden">
-              {loading && results.length === 0 ? (
-                 <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: Colors[theme].text }}>מחפש...</Text>
-                 </View>
-              ) : (
-                results.map((item, index) => (
+            <GlassView intensity={40} className="rounded-2xl overflow-hidden max-h-80">
+              <AnimatedScrollView keyboardShouldPersistTaps="handled">
+                {results.map((item, index) => (
                   <Animated.View 
-                    key={`${item.type}-${item.id}`}
-                  layout={Layout.springify()} 
-                  style={[
-                    styles.itemRow,
-                    { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
-                    index === results.length - 1 && { borderBottomWidth: 0 }
-                  ]}
-                >
-                  <Pressable 
-                    style={({ pressed }) => [
-                      styles.pressableItem,
-                      { backgroundColor: pressed ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent' }
+                    key={item.type + "-" + item.id}
+                    layout={Layout.springify()} 
+                    style={[
+                      styles.itemRow,
+                      { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
                     ]}
-                    onPress={() => handleSelect(item)}
                   >
-                    <View>
-                      <Text style={[styles.itemLabel, { color: Colors[theme].text }]}>
-                        {item.label}
-                      </Text>
-                      {item.subLabel && (
-                        <Text style={styles.itemSubLabel}>{item.subLabel}</Text>
-                      )}
-                    </View>
-                    <IconSymbol name="chevron.right" size={14} color="#8E8E93" style={{ marginLeft: 'auto' }} />
-                  </Pressable>
-                </Animated.View>
-                ))
-              )}
+                    <Pressable 
+                      style={({ pressed }) => [
+                        styles.pressableItem,
+                        { backgroundColor: pressed ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent' }
+                      ]}
+                      onPress={() => handleSelect(item)}
+                    >
+                      {/* Icon based on Type */}
+                      <IconSymbol 
+                        name={item.type === 'book' ? "book.fill" : "text.quote"} 
+                        size={14} 
+                        color={Colors[theme].tint} 
+                        style={{ marginRight: 10 }}
+                      />
+                      
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.itemLabel, { color: Colors[theme].text }]}>
+                          {item.label}
+                        </Text>
+                        {item.subLabel && (
+                          <Text style={styles.itemSubLabel} numberOfLines={1}>
+                            {item.subLabel}
+                          </Text>
+                        )}
+                      </View>
+
+                      <IconSymbol name="chevron.right" size={14} color="#8E8E93" />
+                    </Pressable>
+                  </Animated.View>
+                ))}
+              </AnimatedScrollView>
             </GlassView>
           </Animated.View>
         )}
@@ -182,10 +202,11 @@ const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
+    // Move it slightly up so keyboard doesn't cover it
+    marginBottom: 100, 
   },
-
   searchBar: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL for Hebrew
     alignItems: 'center',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -194,7 +215,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 17,
-    paddingVertical: 0, 
+    paddingVertical: 0,
+    marginRight: 8,
+    writingDirection: 'rtl',
   },
   suggestionsWrapper: {
     marginTop: 8,
@@ -209,17 +232,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   pressableItem: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse', // RTL
     alignItems: 'center',
     padding: 14,
   },
   itemLabel: {
     fontSize: 16,
     fontWeight: '500',
+    textAlign: 'right',
   },
   itemSubLabel: {
     fontSize: 12,
     color: '#8E8E93',
     marginTop: 2,
+    textAlign: 'right',
   },
 });
