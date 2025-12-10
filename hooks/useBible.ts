@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 export interface Verse {
   id: number;
   book_id: string;
+  book_hebrew: string; // Added this field
   chapter: number;
   verse: number;
   text: string;
 }
 
-
-export function useBibleChapter(bookId: string, chapter: number) {
+export function useBibleChapter(bookName: string, chapter: number) {
   const db = useSQLiteContext();
   const [verses, setVerses] = useState<Verse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,12 +21,12 @@ export function useBibleChapter(bookId: string, chapter: number) {
     async function fetch() {
       try {
         setLoading(true);
-        // This query matches the schema created by your Python script
+        // CHANGED: Query by book_hebrew instead of book_id
         const result = await db.getAllAsync<Verse>(
           `SELECT * FROM verses 
-           WHERE book_id = ? AND chapter = ? 
+           WHERE book_hebrew = ? AND chapter = ? 
            ORDER BY verse ASC`,
-          [bookId, chapter]
+          [bookName, chapter]
         );
         
         if (isMounted) {
@@ -42,7 +42,7 @@ export function useBibleChapter(bookId: string, chapter: number) {
     fetch();
 
     return () => { isMounted = false; };
-  }, [bookId, chapter, db]);
+  }, [bookName, chapter, db]);
 
   return { verses, loading };
 }
@@ -55,15 +55,12 @@ export function useBooks() {
   useEffect(() => {
     async function fetch() {
       try {
-         // Get distinct book_ids. 
-         // Note: If you have a separate 'books' table, query that. 
-         // Assuming we only have 'verses' table based on previous context, we select distinct book_id.
-         // However, distinct might be slow on large tables without index. 
-         // Let's assume there is a verses table.
-        const result = await db.getAllAsync<{ book_id: string }>(
-          `SELECT DISTINCT book_id FROM verses` 
+         // CHANGED: Select book_hebrew and order by tanakh_id
+         // We use GROUP BY to get unique books while preserving the ability to sort by tanakh_id
+        const result = await db.getAllAsync<{ book_hebrew: string }>(
+          `SELECT book_hebrew FROM verses GROUP BY book_hebrew ORDER BY tanakh_id ASC` 
         );
-        setBooks(result.map(r => r.book_id));
+        setBooks(result.map(r => r.book_hebrew));
       } catch (e) {
         console.error("Failed to fetch books:", e);
       } finally {
@@ -76,20 +73,21 @@ export function useBooks() {
   return { books, loading };
 }
 
-export function useChapters(bookId: string) {
+export function useChapters(bookName: string) {
   const db = useSQLiteContext();
   const [chapters, setChapters] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!bookId) return;
+    if (!bookName) return;
     
     async function fetch() {
       try {
         setLoading(true);
+        // CHANGED: Query where book_hebrew matches
         const result = await db.getAllAsync<{ chapter: number }>(
-          `SELECT DISTINCT chapter FROM verses WHERE book_id = ? ORDER BY chapter ASC`,
-          [bookId]
+          `SELECT DISTINCT chapter FROM verses WHERE book_hebrew = ? ORDER BY chapter ASC`,
+          [bookName]
         );
         setChapters(result.map(r => r.chapter));
       } catch (e) {
@@ -99,7 +97,7 @@ export function useChapters(bookId: string) {
       }
     }
     fetch();
-  }, [bookId, db]);
+  }, [bookName, db]);
 
   return { chapters, loading };
 }

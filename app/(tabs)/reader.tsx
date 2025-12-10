@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
-  const [currentBook, setCurrentBook] = useState('Genesis');
+  const [currentBook, setCurrentBook] = useState('בראשית');
   const [currentChapter, setCurrentChapter] = useState(1);
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
