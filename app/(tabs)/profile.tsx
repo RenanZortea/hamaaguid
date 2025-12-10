@@ -33,38 +33,42 @@ function MenuItem({ icon: Icon, label, onPress }: MenuItemProps) {
   );
 }
 
+import { PageTransition } from '@/components/PageTransition';
+
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.content} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          
-          {/* Header Section */}
-          <View style={styles.header}>
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]}>
-               <ThemedText style={{ fontSize: 32 }}>א</ThemedText>
-            </View>
-            <ThemedText type="title" style={styles.username}>שם משתמש</ThemedText>
-            <ThemedText style={styles.handle}>@username</ThemedText>
-          </View>
-
-          {/* Menu Section */}
-          <View style={styles.menuSection}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>תפריט</ThemedText>
+      <PageTransition>
+        <SafeAreaView style={styles.content} edges={['top']}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
             
-            <View style={[styles.menuList, { backgroundColor: colorScheme === 'dark' ? '#171717' : '#f5f5f5' }]}>
-              <MenuItem icon={Heart} label="מועדפים" onPress={() => {}} />
-              <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
-              <MenuItem icon={Users} label="חברים" onPress={() => {}} />
-              <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
-              <MenuItem icon={Clock} label="אחרונים" onPress={() => {}} />
+            {/* Header Section */}
+            <View style={styles.header}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]}>
+                 <ThemedText style={{ fontSize: 32 }}>א</ThemedText>
+              </View>
+              <ThemedText type="title" style={styles.username}>שם משתמש</ThemedText>
+              <ThemedText style={styles.handle}>@username</ThemedText>
             </View>
-          </View>
 
-        </ScrollView>
-      </SafeAreaView>
+            {/* Menu Section */}
+            <View style={styles.menuSection}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>תפריט</ThemedText>
+              
+              <View style={[styles.menuList, { backgroundColor: colorScheme === 'dark' ? '#171717' : '#f5f5f5' }]}>
+                <MenuItem icon={Heart} label="מועדפים" onPress={() => {}} />
+                <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+                <MenuItem icon={Users} label="חברים" onPress={() => {}} />
+                <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+                <MenuItem icon={Clock} label="אחרונים" onPress={() => {}} />
+              </View>
+            </View>
+
+          </ScrollView>
+        </SafeAreaView>
+      </PageTransition>
     </ThemedView>
   );
 }
