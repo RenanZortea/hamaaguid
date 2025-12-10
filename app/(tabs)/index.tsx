@@ -1,4 +1,5 @@
 import { EmptyCard } from '@/components/EmptyCard';
+import { PageTransition } from '@/components/PageTransition';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
 import { FlashList } from '@shopify/flash-list';
@@ -15,22 +16,24 @@ export default function HomeScreen() {
       colors={currentTheme === 'dark' ? ['#171717', '#262626'] : ['#e5e5e5', '#ffffff']}
       className="flex-1"
     >
-      <SafeAreaView className="flex-1" edges={['top']}>
-        <View className="flex-1 w-full max-w-[600px] self-center">
-          <FlashList
-            data={data}
-            renderItem={() => <EmptyCard />}
-            estimatedItemSize={100}
-            ListHeaderComponent={() => (
-              <View className="mb-2.5">
-                <VerseOfTheDay />
-              </View>
-            )}
-            contentContainerStyle={{ paddingBottom: 20 }}
-          />
-        </View>
-        <SearchBar />
-      </SafeAreaView>
+      <PageTransition>
+        <SafeAreaView className="flex-1" edges={['top']}>
+          <View className="flex-1 w-full max-w-[600px] self-center">
+            <FlashList
+              data={data}
+              renderItem={() => <EmptyCard />}
+              estimatedItemSize={100}
+              ListHeaderComponent={() => (
+                <View className="mb-2.5">
+                  <VerseOfTheDay />
+                </View>
+              )}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
+          </View>
+          <SearchBar />
+        </SafeAreaView>
+      </PageTransition>
     </LinearGradient>
   );
 }

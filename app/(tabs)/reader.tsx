@@ -1,5 +1,6 @@
 import { AnimatedSearch } from '@/components/AnimatedSearch';
 import { BookSelectionDialog } from '@/components/BookSelectionDialog';
+import { PageTransition } from '@/components/PageTransition';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { VerseActionMenu } from '@/components/VerseActionMenu';
 import { ThemedText } from '@/components/themed-text';
@@ -208,84 +209,86 @@ export default function ReaderScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ThemedText 
-            type="title" 
-            style={{ 
-              fontSize: 28, 
-              fontFamily: 'TaameyFrank-Bold', // Use the specific Bold font family
-              fontWeight: 'normal',
-              marginTop: 10,
-            }}
-          >
-            {currentBook} {toHebrewNumeral(currentChapter)}
-          </ThemedText>
-        </View>
-        
-        {/* Content */}
-        {loading ? (
-          <ThemedView style={styles.center}>
-            <ActivityIndicator size="large" color={Colors[theme].tint} />
-            <ThemedText style={styles.loadingText}>טוען...</ThemedText>
-          </ThemedView>
-        ) : (
-          <ScrollView 
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
-              {verses.map((verse) => {
-                const isSelected = selectedVerseIds.includes(verse.id);
-                return (
-                  <React.Fragment key={verse.id}>
-                    <Text style={styles.verseNumber}> {toHebrewNumeral(verse.verse)} </Text>
-                    <Text 
-                      style={[
-                        styles.verseContent, 
-                        isSelected && { textDecorationLine: 'underline' }
-                      ]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedVerseIds(prev => 
-                          isSelected 
-                            ? prev.filter(id => id !== verse.id)
-                            : [...prev, verse.id]
-                        );
-                      }}
-                      suppressHighlighting={false}
-                    >
-                      {verse.text}
-                    </Text>
-                  </React.Fragment>
-                );
-              })}
-            </Text>
-          </ScrollView>
-        )}
-
-        {/* Floating Action Buttons */}
-        
-        {/* Copy Verse Menu - Shows when verse is selected */}
-        <VerseActionMenu 
-          visible={selectedVerseIds.length > 0}
-          onCopy={handleCopyVerse}
-          onClose={() => setSelectedVerseIds([])}
-          selectedCount={selectedVerseIds.length}
-        />
-
-        {/* Trigger Button - Hides when verse is selected to reduce clutter */}
-        {selectedVerseIds.length === 0 && (
-          <View style={styles.fab}>
-            <SelectVerseButton 
-              label={`${currentBook} ${toHebrewNumeral(currentChapter)}`}
-              onPress={() => setIsDialogOpen(true)}
-              onLongPress={() => setSearchVisible(true)}
-            />
+      <PageTransition>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          {/* Header */}
+          <View style={styles.header}>
+            <ThemedText 
+              type="title" 
+              style={{ 
+                fontSize: 28, 
+                fontFamily: 'TaameyFrank-Bold', // Use the specific Bold font family
+                fontWeight: 'normal',
+                marginTop: 10,
+              }}
+            >
+              {currentBook} {toHebrewNumeral(currentChapter)}
+            </ThemedText>
           </View>
-        )}
-      </SafeAreaView>
+          
+          {/* Content */}
+          {loading ? (
+            <ThemedView style={styles.center}>
+              <ActivityIndicator size="large" color={Colors[theme].tint} />
+              <ThemedText style={styles.loadingText}>טוען...</ThemedText>
+            </ThemedView>
+          ) : (
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
+                {verses.map((verse) => {
+                  const isSelected = selectedVerseIds.includes(verse.id);
+                  return (
+                    <React.Fragment key={verse.id}>
+                      <Text style={styles.verseNumber}> {toHebrewNumeral(verse.verse)} </Text>
+                      <Text 
+                        style={[
+                          styles.verseContent, 
+                          isSelected && { textDecorationLine: 'underline' }
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedVerseIds(prev => 
+                            isSelected 
+                              ? prev.filter(id => id !== verse.id)
+                              : [...prev, verse.id]
+                          );
+                        }}
+                        suppressHighlighting={false}
+                      >
+                        {verse.text}
+                      </Text>
+                    </React.Fragment>
+                  );
+                })}
+              </Text>
+            </ScrollView>
+          )}
+
+          {/* Floating Action Buttons */}
+          
+          {/* Copy Verse Menu - Shows when verse is selected */}
+          <VerseActionMenu 
+            visible={selectedVerseIds.length > 0}
+            onCopy={handleCopyVerse}
+            onClose={() => setSelectedVerseIds([])}
+            selectedCount={selectedVerseIds.length}
+          />
+
+          {/* Trigger Button - Hides when verse is selected to reduce clutter */}
+          {selectedVerseIds.length === 0 && (
+            <View style={styles.fab}>
+              <SelectVerseButton 
+                label={`${currentBook} ${toHebrewNumeral(currentChapter)}`}
+                onPress={() => setIsDialogOpen(true)}
+                onLongPress={() => setSearchVisible(true)}
+              />
+            </View>
+          )}
+        </SafeAreaView>
+      </PageTransition>
 
       {/* DIALOG */}
       <BookSelectionDialog
