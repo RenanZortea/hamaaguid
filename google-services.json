@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:234999053472:android:b1c072febaaa1eefe25dc5",
+        "mobilesdk_app_id": "1:234999053472:android:baad9c964e19bb03e25dc5",
         "android_client_info": {
-          "package_name": "com.hamaguid.hamaguid"
+          "package_name": "com.hamaaguid.hamaaguid"
         }
       },
       "oauth_client": [
