@@ -184,7 +184,7 @@ export default function ReaderScreen() {
                     <Text 
                       style={[
                         styles.verseContent, 
-                        isSelected && { backgroundColor: theme === 'dark' ? '#554b2e' : '#fff3cd', color: theme === 'dark' ? '#fff' : '#000' }
+                        isSelected && { textDecorationLine: 'underline' }
                       ]}
                       onPress={() => {
                         Haptics.selectionAsync();
