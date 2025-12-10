@@ -9,19 +9,20 @@ import {
   BackHandler,
   Dimensions,
   Keyboard,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Animated, {
-  ScrollView as AnimatedScrollView,
   FadeIn,
   FadeOut,
   Layout
-} from 'react-native-reanimated';
+} from 'react-native-reanimated'; // Removed ScrollView from here
 
 // --- CONFIG ---
 const SPRING_CONFIG = { damping: 10, stiffness: 120 };
@@ -35,6 +36,7 @@ export interface AnimatedSearchProps {
   loading: boolean;
   onSearchChange: (text: string) => void;
   placeholder?: string;
+  onLoadMore?: () => void; // Add this prop
 }
 
 export function AnimatedSearch({ 
@@ -44,7 +46,8 @@ export function AnimatedSearch({
   results, 
   loading, 
   onSearchChange,
-  placeholder = "חפש ספר, פסוק או מילה..."
+  placeholder = "חפש ספר, פסוק או מילה...",
+  onLoadMore
 }: AnimatedSearchProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
@@ -53,8 +56,6 @@ export function AnimatedSearch({
   // State
   const [query, setQuery] = useState('');
   
-
-
   // Update parent when text changes
   const handleTextChange = (text: string) => {
     setQuery(text);
@@ -86,7 +87,18 @@ export function AnimatedSearch({
     handleBlur();
   };
 
-
+  // Scroll Handler to detect bottom
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    
+    // Check if we are near the bottom
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      if (onLoadMore) {
+        onLoadMore();
+      }
+    }
+  };
 
   if (!visible) return null;
 
@@ -122,7 +134,7 @@ export function AnimatedSearch({
             textAlign="right" // Hebrew support
           />
           
-          {loading ? (
+          {loading && results.length === 0 ? (
              <ActivityIndicator size="small" color={Colors[theme].icon} />
           ) : query.length > 0 ? (
             <TouchableOpacity onPress={() => handleTextChange('')}>
@@ -138,11 +150,16 @@ export function AnimatedSearch({
             entering={FadeIn.duration(200)} 
             style={styles.suggestionsWrapper}
           >
-            <GlassView intensity={40} className="rounded-2xl overflow-hidden max-h-80">
-              <AnimatedScrollView keyboardShouldPersistTaps="handled">
+            <GlassView intensity={100} className="rounded-2xl overflow-hidden max-h-80">
+              {/* FIXED: Use Animated.ScrollView instead of AnimatedScrollView */}
+              <Animated.ScrollView 
+                keyboardShouldPersistTaps="handled"
+                onScroll={handleScroll} // Attach handler
+                scrollEventThrottle={16} // Ensure smooth updates
+              >
                 {results.map((item, index) => (
                   <Animated.View 
-                    key={item.type + "-" + item.id}
+                    key={`${item.type}-${item.id}`}
                     layout={Layout.springify()} 
                     style={[
                       styles.itemRow,
@@ -179,7 +196,14 @@ export function AnimatedSearch({
                     </Pressable>
                   </Animated.View>
                 ))}
-              </AnimatedScrollView>
+
+                {/* Optional: Show spinner at bottom when lazy loading */}
+                {loading && results.length > 0 && (
+                   <View style={{ padding: 10 }}>
+                      <ActivityIndicator size="small" color={Colors[theme].icon} />
+                   </View>
+                )}
+              </Animated.ScrollView>
             </GlassView>
           </Animated.View>
         )}
@@ -202,11 +226,10 @@ const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
-    // Move it slightly up so keyboard doesn't cover it
     marginBottom: 100, 
   },
   searchBar: {
-    flexDirection: 'row-reverse', // RTL for Hebrew
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -232,7 +255,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   pressableItem: {
-    flexDirection: 'row-reverse', // RTL
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 14,
   },

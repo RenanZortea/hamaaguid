@@ -133,7 +133,7 @@ export default function ReaderScreen() {
 
   // 1. Setup Search State
   const [searchQuery, setSearchQuery] = useState('');
-  const { results: searchResults, loading: searchLoading } = useUnifiedSearch(searchQuery);
+  const { results: searchResults, loading: searchLoading, loadMore } = useUnifiedSearch(searchQuery);
 
   // Handle Navigation Params (from Search)
   useEffect(() => {
@@ -297,6 +297,7 @@ export default function ReaderScreen() {
         loading={searchLoading}
         onSearchChange={setSearchQuery}
         onSelect={handleSearchSelect}
+        onLoadMore={loadMore}
       />
     </ThemedView>
   );

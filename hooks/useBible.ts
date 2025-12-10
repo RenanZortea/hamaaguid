@@ -1,5 +1,5 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface Verse {
   id: number;
@@ -132,73 +132,132 @@ export function useUnifiedSearch(query: string) {
   const db = useSQLiteContext();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Pagination State
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 20;
 
-  useEffect(() => {
-    if (!query || query.trim().length < 2) {
-      setResults([]);
+  // Track the current query to prevent race conditions
+  const currentQueryRef = useRef(query);
+
+  const fetchResults = useCallback(async (searchText: string, currentOffset: number, shouldReset: boolean) => {
+    // If empty or too short, clear results
+    if (!searchText || searchText.trim().length < 2) {
+      if (shouldReset) {
+        setResults([]);
+        setLoading(false);
+      }
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const cleanQuery = removeNikkud(query.trim());
-        const wildCardQuery = `%${cleanQuery}%`;
+    try {
+      if (shouldReset) setLoading(true);
+      
+      const cleanQuery = removeNikkud(searchText.trim());
+      const wildCardQuery = `%${cleanQuery}%`;
 
-        // 1. Search Books (using the clean query against Book Names)
-        const booksPromise = db.getAllAsync<any>(
+      // 1. Search Books (Only on first page)
+      let books: any[] = [];
+      if (currentOffset === 0) {
+        books = await db.getAllAsync<any>(
           `SELECT מזהה as id, שם as name FROM ספרים 
            WHERE שם LIKE ? OR מזהה LIKE ? 
            LIMIT 5`,
           [wildCardQuery, wildCardQuery]
         );
-
-        // 2. Search Verses (searching the NEW 'clean_text' column)
-        const versesPromise = db.getAllAsync<any>(
-          `SELECT 
-             p.מזהה as id, 
-             s.שם as book_name, 
-             p.פרק as chapter, 
-             p.פסוק as verse, 
-             p.תוכן as text 
-           FROM פסוקים p 
-           JOIN ספרים s ON p.מזהה_ספר = s.מזהה
-           WHERE p.clean_text LIKE ? 
-           ORDER BY p.מזהה ASC
-           LIMIT 20`,
-          [wildCardQuery]
-        );
-
-        const [books, verses] = await Promise.all([booksPromise, versesPromise]);
-
-        // 3. Combine and Format Results
-        const formattedResults: SearchResult[] = [
-          ...books.map((b) => ({
-            type: 'book' as const,
-            id: b.id.toString(),
-            label: b.name,
-            subLabel: 'נווט לספר',
-            data: b
-          })),
-          ...verses.map((v) => ({
-            type: 'verse' as const,
-            id: v.id,
-            label: `${v.book_name} ${v.chapter}:${v.verse}`,
-            subLabel: v.text, // Matches are found, but we show original text
-            data: v
-          }))
-        ];
-
-        setResults(formattedResults);
-      } catch (e) {
-        console.error("Unified Search Error:", e);
-      } finally {
-        setLoading(false);
       }
-    }, 400); // 400ms Debounce
 
-    return () => clearTimeout(timer);
-  }, [query, db]);
+      // 2. Search Verses (With Pagination)
+      const verses = await db.getAllAsync<any>(
+        `SELECT 
+            p.מזהה as id, 
+            s.שם as book_name, 
+            p.פרק as chapter, 
+            p.פסוק as verse, 
+            p.תוכן as text 
+          FROM פסוקים p 
+          JOIN ספרים s ON p.מזהה_ספר = s.מזהה
+          WHERE p.clean_text LIKE ? 
+          ORDER BY p.מזהה ASC
+          LIMIT ? OFFSET ?`,
+        [wildCardQuery, LIMIT, currentOffset]
+      );
 
-  return { results, loading };
+      // Check if we reached the end
+      if (verses.length < LIMIT) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+
+      // 3. Format Results
+      const newResults: SearchResult[] = [
+        ...books.map((b) => ({
+          type: 'book' as const,
+          id: b.id.toString(),
+          label: b.name,
+          subLabel: 'נווט לספר',
+          data: b
+        })),
+        ...verses.map((v) => ({
+          type: 'verse' as const,
+          id: v.id,
+          label: `${v.book_name} ${v.chapter}:${v.verse}`,
+          subLabel: v.text,
+          data: v
+        }))
+      ];
+
+      if (shouldReset) {
+        setResults(newResults);
+        setLoading(false); // Ensure loading is false after reset
+      } else {
+        // Append unique results (filtering duplicates just in case)
+        setResults(prev => {
+          const existingIds = new Set(prev.map(i => i.id));
+          const uniqueNew = newResults.filter(i => !existingIds.has(i.id));
+          return [...prev, ...uniqueNew];
+        });
+      }
+
+    } catch (e) {
+      console.error("Unified Search Error:", e);
+    } finally {
+      // Only unset loading if we were resetting (initial load)
+      // If we are loading more, we might handle it differently but usually simpler is fine
+      if (shouldReset) setLoading(false);
+    }
+  }, [db]);
+
+  // Initial Search / Query Change
+  useEffect(() => {
+    // If the query changed, we must reset
+    if (query !== currentQueryRef.current) {
+         currentQueryRef.current = query;
+         setOffset(0);
+         setHasMore(true);
+         // Debounce only for the new query
+         const timer = setTimeout(() => {
+            fetchResults(query, 0, true);
+         }, 400); 
+         return () => clearTimeout(timer);
+    } else if (currentQueryRef.current === '' && results.length > 0) {
+        // Clear if empty
+         setResults([]);
+    }
+  }, [query, fetchResults, results.length]);
+
+
+
+  // Load More Function
+  const loadMore = () => {
+    if (!loading && hasMore && query.trim().length >= 2) {
+      const nextOffset = offset + LIMIT;
+      setOffset(nextOffset);
+      fetchResults(query, nextOffset, false);
+    }
+  };
+
+  return { results, loading, loadMore, hasMore };
 }

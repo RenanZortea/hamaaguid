@@ -16,8 +16,29 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
+  const [loaded] = useFonts({
+    // UI Font
+    'Rubik': require('../assets/fonts/Rubik-VariableFont_wght.ttf'),
+    
+    // Scripture Font (Biblical Hebrew)
+    'TaameyFrank': require('../assets/fonts/TaameyFrankCLM-Medium.ttf'),
+    'TaameyFrank-Bold': require('../assets/fonts/TaameyFrankCLM-Bold.ttf'),
+  });
+
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -27,6 +48,10 @@ export default function RootLayout() {
       NavigationBar.setButtonStyleAsync(buttonStyle);
     }
   }, [colorScheme]);
+
+  if (!loaded) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={styles.container}>
