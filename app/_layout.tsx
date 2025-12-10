@@ -31,7 +31,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <SQLiteProvider databaseName="bible_v2.db" assetSource={{ assetId: require('../assets/bible.db') }}>
+        <SQLiteProvider databaseName="tanakh.db" assetSource={{ assetId: require('../assets/tanakh.db') }}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

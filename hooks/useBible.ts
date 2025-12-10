@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 
 export interface Verse {
   id: number;
-  book_id: string;
-  book_hebrew: string; // Added this field
+  book_id: string; // Keeping for compatibility, though we might map it to label
+  book_hebrew: string;
   chapter: number;
   verse: number;
   text: string;
@@ -21,11 +21,19 @@ export function useBibleChapter(bookName: string, chapter: number) {
     async function fetch() {
       try {
         setLoading(true);
-        // CHANGED: Query by book_hebrew instead of book_id
+        // Query using Hebrew table/column names and alias to match Verse interface
         const result = await db.getAllAsync<Verse>(
-          `SELECT * FROM verses 
-           WHERE book_hebrew = ? AND chapter = ? 
-           ORDER BY verse ASC`,
+          `SELECT 
+             p.מזהה as id, 
+             s.שם as book_hebrew, 
+             s.שם as book_id,
+             p.פרק as chapter, 
+             p.פסוק as verse, 
+             p.תוכן as text 
+           FROM פסוקים p 
+           JOIN ספרים s ON p.מזהה_ספר = s.מזהה
+           WHERE s.שם = ? AND p.פרק = ? 
+           ORDER BY p.פסוק ASC`,
           [bookName, chapter]
         );
         
@@ -55,10 +63,9 @@ export function useBooks() {
   useEffect(() => {
     async function fetch() {
       try {
-         // CHANGED: Select book_hebrew and order by tanakh_id
-         // We use GROUP BY to get unique books while preserving the ability to sort by tanakh_id
+        // Query books from ספרים table
         const result = await db.getAllAsync<{ book_hebrew: string }>(
-          `SELECT book_hebrew FROM verses GROUP BY book_hebrew ORDER BY tanakh_id ASC` 
+          `SELECT שם as book_hebrew FROM ספרים ORDER BY מזהה ASC` 
         );
         setBooks(result.map(r => r.book_hebrew));
       } catch (e) {
@@ -84,9 +91,13 @@ export function useChapters(bookName: string) {
     async function fetch() {
       try {
         setLoading(true);
-        // CHANGED: Query where book_hebrew matches
+        // Find chapters for the given book name
         const result = await db.getAllAsync<{ chapter: number }>(
-          `SELECT DISTINCT chapter FROM verses WHERE book_hebrew = ? ORDER BY chapter ASC`,
+          `SELECT DISTINCT p.פרק as chapter 
+           FROM פסוקים p 
+           JOIN ספרים s ON p.מזהה_ספר = s.מזהה 
+           WHERE s.שם = ? 
+           ORDER BY p.פרק ASC`,
           [bookName]
         );
         setChapters(result.map(r => r.chapter));
