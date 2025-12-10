@@ -1,15 +1,16 @@
-// import 'react-native-reanimated'; // Temporarily disabled - requires native rebuild
+import 'react-native-reanimated';
 import "../global.css";
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -28,14 +29,22 @@ export default function RootLayout() {
   }, [colorScheme]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <SQLiteProvider databaseName="bible_v2.db" assetSource={{ assetId: require('../assets/bible.db') }}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </SQLiteProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.container}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <SQLiteProvider databaseName="bible_v2.db" assetSource={{ assetId: require('../assets/bible.db') }}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </SQLiteProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

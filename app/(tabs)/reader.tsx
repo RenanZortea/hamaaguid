@@ -72,7 +72,6 @@ export default function ReaderScreen() {
         )}
 
         <SelectVerseButton 
-          style={styles.fab}
           onChapterSelect={handleChapterSelect}
           label={`${currentBook} ${currentChapter}`}
           currentBook={currentBook}
@@ -122,11 +121,6 @@ const styles = StyleSheet.create({
   selectedVerse: {
     backgroundColor: '#fff3cd', // Light yellow highlight
     color: '#000',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
   },
 });
 
