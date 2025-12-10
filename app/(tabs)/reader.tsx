@@ -1,4 +1,4 @@
-import { RadialMenuOverlay } from '@/components/RadialMenuOverlay';
+import { BibleCategory, GestureMenuOverlay } from '@/components/GestureMenuOverlay';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,6 +10,67 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// --- DATA STRUCTURE (Complete Bible) ---
+const BIBLE_STRUCTURE: BibleCategory[] = [
+  {
+    id: 'Torah',
+    label: 'תורה',
+    books: [
+      { id: 'בראשית', label: 'בראשית', chapters: 50 },
+      { id: 'שמות', label: 'שמות', chapters: 40 },
+      { id: 'ויקרא', label: 'ויקרא', chapters: 27 },
+      { id: 'במדבר', label: 'במדבר', chapters: 36 },
+      { id: 'דברים', label: 'דברים', chapters: 34 },
+    ],
+  },
+  {
+    id: 'Neviim',
+    label: 'נביאים',
+    books: [
+      { id: 'יהושע', label: 'יהושע', chapters: 24 },
+      { id: 'שופטים', label: 'שופטים', chapters: 21 },
+      { id: 'שמואל א', label: 'שמואל א', chapters: 31 },
+      { id: 'שמואל ב', label: 'שמואל ב', chapters: 24 },
+      { id: 'מלכים א', label: 'מלכים א', chapters: 22 },
+      { id: 'מלכים ב', label: 'מלכים ב', chapters: 25 },
+      { id: 'ישעיהו', label: 'ישעיהו', chapters: 66 },
+      { id: 'ירמיהו', label: 'ירמיהו', chapters: 52 },
+      { id: 'יחזקאל', label: 'יחזקאל', chapters: 48 },
+      { id: 'הושע', label: 'הושע', chapters: 14 },
+      { id: 'יואל', label: 'יואל', chapters: 4 },
+      { id: 'עמוס', label: 'עמוס', chapters: 9 },
+      { id: 'עובדיה', label: 'עובדיה', chapters: 1 },
+      { id: 'יונה', label: 'יונה', chapters: 4 },
+      { id: 'מיכה', label: 'מיכה', chapters: 7 },
+      { id: 'נחום', label: 'נחום', chapters: 3 },
+      { id: 'חבקוק', label: 'חבקוק', chapters: 3 },
+      { id: 'צפניה', label: 'צפניה', chapters: 3 },
+      { id: 'חגי', label: 'חגי', chapters: 2 },
+      { id: 'זכריה', label: 'זכריה', chapters: 14 },
+      { id: 'מלאכי', label: 'מלאכי', chapters: 3 },
+    ],
+  },
+  {
+    id: 'Ketuvim',
+    label: 'כתובים',
+    books: [
+      { id: 'תהילים', label: 'תהילים', chapters: 150 },
+      { id: 'משלי', label: 'משלי', chapters: 31 },
+      { id: 'איוב', label: 'איוב', chapters: 42 },
+      { id: 'שיר השירים', label: 'שיר השירים', chapters: 8 },
+      { id: 'רות', label: 'רות', chapters: 4 },
+      { id: 'איכה', label: 'איכה', chapters: 5 },
+      { id: 'קהלת', label: 'קהלת', chapters: 12 },
+      { id: 'אסתר', label: 'אסתר', chapters: 10 },
+      { id: 'דניאל', label: 'דניאל', chapters: 12 },
+      { id: 'עזרא', label: 'עזרא', chapters: 10 },
+      { id: 'נחמיה', label: 'נחמיה', chapters: 13 },
+      { id: 'דברי הימים א', label: 'דברי הימים א', chapters: 29 },
+      { id: 'דברי הימים ב', label: 'דברי הימים ב', chapters: 36 },
+    ],
+  }
+];
+
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
   const [currentBook, setCurrentBook] = useState('בראשית');
@@ -17,40 +78,25 @@ export default function ReaderScreen() {
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
 
-  // Animation State for Radial Menu
+  // Animation State
   const isOpen = useSharedValue(false);
   const touchX = useSharedValue(0);
   const touchY = useSharedValue(0);
   const origin = useSharedValue({ x: 0, y: 0 });
-  const activeIndex = useSharedValue(-1);
-
-  // Menu Items (Torah)
-  const menuItems = [
-    { label: 'בראשית', id: 'בראשית' },
-    { label: 'שמות', id: 'שמות' },
-    { label: 'ויקרא', id: 'ויקרא' },
-    { label: 'במדבר', id: 'במדבר' },
-    { label: 'דברים', id: 'דברים' },
-  ];
 
   const handleVersePress = (verse: Verse) => {
     if (selectedVerseId === verse.id) {
       setSelectedVerseId(null);
     } else {
       setSelectedVerseId(verse.id);
-      console.log(`Clicked verse ${verse.verse}: ${verse.text}`);
     }
   };
 
-  const handleRadialSelect = () => {
-    const idx = activeIndex.value;
-    if (idx >= 0 && idx < menuItems.length) {
-      const selected = menuItems[idx];
-      console.log("Selected:", selected.id);
-      setCurrentBook(selected.id);
-      setCurrentChapter(1); // Reset to chapter 1
-      setSelectedVerseId(null); // Reset selection on change
-    }
+  const handleMenuSelect = (bookId: string, chapter: number) => {
+    console.log("Selected:", bookId, chapter);
+    setCurrentBook(bookId);
+    setCurrentChapter(chapter);
+    setSelectedVerseId(null);
   };
 
   return (
@@ -70,18 +116,11 @@ export default function ReaderScreen() {
             <Text style={[styles.chapterText, { color: Colors[colorScheme ?? 'light'].text }]}>
               {verses.map((verse) => {
                 const isSelected = selectedVerseId === verse.id;
-                
                 return (
                   <React.Fragment key={verse.id}>
-                    {/* Verse Number - NOT clickable */}
                     <Text style={styles.verseNumber}> {verse.verse} </Text>
-                    
-                    {/* Verse Text - CLICKABLE */}
                     <Text 
-                      style={[
-                        styles.verseContent, 
-                        isSelected && styles.selectedVerse
-                      ]}
+                      style={[styles.verseContent, isSelected && styles.selectedVerse]}
                       onPress={() => handleVersePress(verse)}
                       suppressHighlighting={false}
                     >
@@ -94,7 +133,7 @@ export default function ReaderScreen() {
           </ScrollView>
         )}
 
-        {/* The Button (Pass shared values) */}
+        {/* Floating Trigger Button */}
         <View style={styles.fab}>
           <SelectVerseButton 
             label={`${currentBook} ${currentChapter}`}
@@ -102,21 +141,20 @@ export default function ReaderScreen() {
             touchX={touchX}
             touchY={touchY}
             origin={origin}
-            activeIndex={activeIndex}
-            onFinalSelect={handleRadialSelect}
-            totalItems={menuItems.length}
+            activeIndex={useSharedValue(-1)} // Not used in new menu, pass dummy
+            onFinalSelect={() => {}} // Logic moved to Overlay
           />
         </View>
       </SafeAreaView>
 
-      {/* The Overlay (Must be last to be on top) */}
-      <RadialMenuOverlay 
+      {/* NEW Gesture Menu Overlay */}
+      <GestureMenuOverlay 
         isOpen={isOpen}
         touchX={touchX}
         touchY={touchY}
         origin={origin}
-        activeIndex={activeIndex}
-        items={menuItems}
+        data={BIBLE_STRUCTURE}
+        onSelect={handleMenuSelect}
       />
     </ThemedView>
   );
