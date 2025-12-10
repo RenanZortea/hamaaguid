@@ -211,7 +211,14 @@ export default function ReaderScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="title" style={{ fontSize: 24 }}>
+          <ThemedText 
+            type="title" 
+            style={{ 
+              fontSize: 28, 
+              fontFamily: 'TaameyFrank-Bold', // Use the specific Bold font family
+              fontWeight: 'normal'            // Override the default 'bold' weight to avoid fallback issues
+            }}
+          >
             {currentBook} {toHebrewNumeral(currentChapter)}
           </ThemedText>
         </View>
@@ -271,7 +278,7 @@ export default function ReaderScreen() {
         {selectedVerseIds.length === 0 && (
           <View style={styles.fab}>
             <SelectVerseButton 
-              label="נווט"
+              label={`${currentBook} ${toHebrewNumeral(currentChapter)}`}
               onPress={() => setIsDialogOpen(true)}
               onLongPress={() => setSearchVisible(true)}
             />
