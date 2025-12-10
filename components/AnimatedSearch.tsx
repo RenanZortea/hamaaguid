@@ -1,4 +1,3 @@
-import { GlassView } from '@/components/ui/GlassView';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -150,7 +149,13 @@ export function AnimatedSearch({
             entering={FadeIn.duration(200)} 
             style={styles.suggestionsWrapper}
           >
-            <GlassView intensity={100} className="rounded-2xl overflow-hidden max-h-80">
+            <View style={{
+                borderRadius: 16,
+                padding: 12, // Add padding for content
+                overflow: 'hidden',
+                maxHeight: 320,
+                backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF',
+            }}>
               {/* FIXED: Use Animated.ScrollView instead of AnimatedScrollView */}
               <Animated.ScrollView 
                 keyboardShouldPersistTaps="handled"
@@ -173,26 +178,40 @@ export function AnimatedSearch({
                       ]}
                       onPress={() => handleSelect(item)}
                     >
-                      {/* Icon based on Type */}
-                      <IconSymbol 
-                        name={item.type === 'book' ? "book.fill" : "text.quote"} 
-                        size={14} 
-                        color={Colors[theme].tint} 
-                        style={{ marginRight: 10 }}
-                      />
                       
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.itemLabel, { color: Colors[theme].text }]}>
-                          {item.label}
-                        </Text>
-                        {item.subLabel && (
-                          <Text style={styles.itemSubLabel} numberOfLines={1}>
-                            {item.subLabel}
-                          </Text>
+                      <View style={{ flex: 1, paddingVertical: 4 }}>
+                        {item.type === 'verse' ? (
+                          <>
+                             {/* Verse Text (Big & Top) */}
+                             <Text 
+                               style={[
+                                 styles.itemLabel, 
+                                 { color: Colors[theme].text, fontSize: 18, fontWeight: '600', marginBottom: 6 }
+                               ]}
+                               numberOfLines={2}
+                             >
+                               {item.subLabel}
+                             </Text>
+                             
+                             {/* Reference (Small & Bottom) */}
+                             <Text style={[styles.itemSubLabel, { fontSize: 14 }]}>
+                               {item.label}
+                             </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={[styles.itemLabel, { color: Colors[theme].text }]}>
+                              {item.label}
+                            </Text>
+                            {item.subLabel && (
+                              <Text style={styles.itemSubLabel} numberOfLines={1}>
+                                {item.subLabel}
+                              </Text>
+                            )}
+                          </>
                         )}
                       </View>
 
-                      <IconSymbol name="chevron.right" size={14} color="#8E8E93" />
                     </Pressable>
                   </Animated.View>
                 ))}
@@ -204,7 +223,7 @@ export function AnimatedSearch({
                    </View>
                 )}
               </Animated.ScrollView>
-            </GlassView>
+            </View>
           </Animated.View>
         )}
       </Animated.View>
@@ -253,11 +272,13 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     borderBottomWidth: 1,
+    marginBottom: 8, // Add margin bottom
   },
   pressableItem: {
     flexDirection: 'row-reverse',
-    alignItems: 'center',
-    padding: 14,
+    alignItems: 'flex-start', // Align icon to top
+    padding: 16, // Increase padding
+    paddingVertical: 18, // Extra vertical padding
   },
   itemLabel: {
     fontSize: 16,
