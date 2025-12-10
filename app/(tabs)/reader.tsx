@@ -328,19 +328,21 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   chapterText: {
-    fontSize: 22,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 48,
     textAlign: 'right', // Align text to the right for Hebrew
     writingDirection: 'rtl',
-    fontFamily: 'System', // Or your custom Hebrew font
+    fontFamily: 'TaameyFrank',
   },
   verseNumber: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#888',
-    fontWeight: '700',
     marginHorizontal: 4,
+    fontFamily: 'TaameyFrank-Bold',
   },
   verseContent: {
+    fontSize: 28,
+    lineHeight: 48,
     // Tappable areas logic
   },
   fab: {
