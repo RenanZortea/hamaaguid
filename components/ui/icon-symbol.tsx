@@ -20,6 +20,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'book.fill': 'menu-book',
   'magnifyingglass': 'search',
+  'xmark.circle.fill': 'cancel',
 } as IconMapping;
 
 /**

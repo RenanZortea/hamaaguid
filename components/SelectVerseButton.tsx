@@ -8,11 +8,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface SelectVerseButtonProps {
   label?: string;
   onPress?: () => void;
+  onLongPress?: () => void;
 }
 
 export function SelectVerseButton({ 
   label = 'נווט', 
   onPress,
+  onLongPress,
 }: SelectVerseButtonProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
@@ -23,8 +25,13 @@ export function SelectVerseButton({
     onPress?.();
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onLongPress?.();
+  };
+
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
+    <TouchableOpacity onPress={handlePress} onLongPress={handleLongPress} activeOpacity={0.8}>
       <View style={styles.container}>
         <GlassView 
           intensity={80} 

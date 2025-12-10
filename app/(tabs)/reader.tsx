@@ -1,3 +1,4 @@
+import { AnimatedSearch } from '@/components/AnimatedSearch';
 import { BookSelectionDialog } from '@/components/BookSelectionDialog';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { ThemedText } from '@/components/themed-text';
@@ -89,6 +90,9 @@ export default function ReaderScreen() {
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseId, setSelectedVerseId] = useState<number | null>(null);
 
+  // Search State
+  const [searchVisible, setSearchVisible] = useState(false);
+
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -101,7 +105,7 @@ export default function ReaderScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <ThemedText type="title" style={{ fontSize: 24 }}>
@@ -148,6 +152,7 @@ export default function ReaderScreen() {
           <SelectVerseButton 
             label="נווט"
             onPress={() => setIsDialogOpen(true)}
+            onLongPress={() => setSearchVisible(true)}
           />
         </View>
       </SafeAreaView>
@@ -158,6 +163,20 @@ export default function ReaderScreen() {
         onClose={() => setIsDialogOpen(false)}
         onSelect={handleMenuSelect}
         data={BIBLE_STRUCTURE}
+      />
+      
+      {/* SEARCH OVERLAY */}
+      <AnimatedSearch 
+        visible={searchVisible}
+        data={[
+          { id: '1', label: 'Genesis', subLabel: 'The Beginning' },
+          { id: '2', label: 'Exodus', subLabel: 'Departure' },
+          { id: '3', label: 'Leviticus', subLabel: 'Laws' },
+          { id: '4', label: 'Numbers', subLabel: 'Census' },
+          { id: '5', label: 'Deuteronomy', subLabel: 'Second Law' },
+        ]}
+        onSelect={(item) => setSearchVisible(false)}
+        onCancel={() => setSearchVisible(false)}
       />
     </ThemedView>
   );
@@ -178,15 +197,14 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150,150,150,0.1)',
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 100, // Space for FAB
+    paddingTop: 0,
   },
   chapterText: {
     fontSize: 22,
