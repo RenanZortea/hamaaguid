@@ -1,11 +1,14 @@
 import { AnimatedSearch } from '@/components/AnimatedSearch';
 import { BookSelectionDialog } from '@/components/BookSelectionDialog';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
+import { VerseActionMenu } from '@/components/VerseActionMenu';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter } from '@/hooks/useBible';
+import * as ClipboardAPI from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -137,6 +140,20 @@ export default function ReaderScreen() {
     setIsDialogOpen(false);
   };
 
+  const handleCopyVerse = async () => {
+    if (!selectedVerseId) return;
+    
+    const verse = verses.find(v => v.id === selectedVerseId);
+    if (verse) {
+      // Format: "Book Chapter:Verse - Text"
+      const textToCopy = `${currentBook} ${currentChapter}:${verse.verse}\n${verse.text}`;
+      await ClipboardAPI.setStringAsync(textToCopy);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setSelectedVerseId(null); // Close menu after copy
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -169,7 +186,10 @@ export default function ReaderScreen() {
                         styles.verseContent, 
                         isSelected && { backgroundColor: theme === 'dark' ? '#554b2e' : '#fff3cd', color: theme === 'dark' ? '#fff' : '#000' }
                       ]}
-                      onPress={() => setSelectedVerseId(isSelected ? null : verse.id)}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedVerseId(isSelected ? null : verse.id);
+                      }}
                       suppressHighlighting={false}
                     >
                       {verse.text}
@@ -181,14 +201,25 @@ export default function ReaderScreen() {
           </ScrollView>
         )}
 
-        {/* Trigger Button */}
-        <View style={styles.fab}>
-          <SelectVerseButton 
-            label="נווט"
-            onPress={() => setIsDialogOpen(true)}
-            onLongPress={() => setSearchVisible(true)}
-          />
-        </View>
+        {/* Floating Action Buttons */}
+        
+        {/* Copy Verse Menu - Shows when verse is selected */}
+        <VerseActionMenu 
+          visible={selectedVerseId !== null}
+          onCopy={handleCopyVerse}
+          onClose={() => setSelectedVerseId(null)}
+        />
+
+        {/* Trigger Button - Hides when verse is selected to reduce clutter */}
+        {selectedVerseId === null && (
+          <View style={styles.fab}>
+            <SelectVerseButton 
+              label="נווט"
+              onPress={() => setIsDialogOpen(true)}
+              onLongPress={() => setSearchVisible(true)}
+            />
+          </View>
+        )}
       </SafeAreaView>
 
       {/* DIALOG */}
