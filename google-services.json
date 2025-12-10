@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "234999053472",
+    "project_id": "pasukiah-bibleapp",
+    "storage_bucket": "pasukiah-bibleapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:234999053472:android:b1c072febaaa1eefe25dc5",
+        "android_client_info": {
+          "package_name": "com.hamaguid.hamaguid"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "234999053472-v6vjsvrm5ldpf3aqre72g7ispneonnd3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmksAwHs34ymTHV6IHbrtP7fCFZXLnXTc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "234999053472-v6vjsvrm5ldpf3aqre72g7ispneonnd3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
