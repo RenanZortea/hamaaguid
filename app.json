@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "pasukiah-mobile",
-    "slug": "pasukiah-mobile",
+    "name": "hamaaguid",
+    "slug": "hamaaguid",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pasukiahmobile",
+    "scheme": "hamaaguid",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
