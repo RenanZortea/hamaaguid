@@ -9,6 +9,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBibleChapter } from '@/hooks/useBible';
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
+import { useScrollToVerse } from '@/hooks/useScrollToVerse';
 import { toHebrewNumeral } from '@/utils/hebrewNumerals';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -134,6 +135,13 @@ export default function ReaderScreen() {
   const { verses, loading } = useBibleChapter(currentBook, currentChapter);
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
 
+  // Use the scroll hook
+  const { scrollViewRef, handleHeaderLayout, checkScrollToVerse } = useScrollToVerse(
+    params,
+    verses,
+    loading
+  );
+
   // 1. Setup Search State
   const [searchQuery, setSearchQuery] = useState('');
   const { results: searchResults, loading: searchLoading } = useOramaSearch(searchQuery);
@@ -256,12 +264,16 @@ export default function ReaderScreen() {
             </ThemedView>
           ) : (
             <ScrollView 
+              ref={scrollViewRef}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
 
           {/* Header */}
-          <View style={styles.header}>
+          <View 
+            style={styles.header}
+            onLayout={handleHeaderLayout}
+          >
             <ThemedText 
               type="title" 
               style={{ 
@@ -293,6 +305,7 @@ export default function ReaderScreen() {
                               : [...prev, verse.id]
                           );
                         }}
+                        onLayout={(e) => checkScrollToVerse(verse.id, e.nativeEvent.layout.y)}
                         suppressHighlighting={false}
                       >
                         {verse.text}
