@@ -2,7 +2,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SearchResult } from '@/hooks/useBible';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -15,7 +15,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Platform
 } from 'react-native';
 import Animated, {
   FadeIn,
@@ -23,10 +24,6 @@ import Animated, {
   Layout
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// --- CONFIG ---
-const SPRING_CONFIG = { damping: 10, stiffness: 120 };
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface AnimatedSearchProps {
   visible: boolean;
@@ -53,29 +50,34 @@ export function AnimatedSearch({
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
   const insets = useSafeAreaInsets();
+  const inputRef = useRef<TextInput>(null);
 
-  // State
   const [query, setQuery] = useState('');
   
-  // Update parent when text changes
   const handleTextChange = (text: string) => {
     setQuery(text);
     onSearchChange(text);
   };
 
-  // --- BACK HANDLER ---
   useEffect(() => {
     if (!visible) return;
+
+    // Force focus after animation starts to ensure keyboard appears
+    const timer = setTimeout(() => {
+        inputRef.current?.focus();
+    }, 100);
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       handleBlur();
       return true;
     });
 
-    return () => backHandler.remove();
+    return () => {
+        backHandler.remove();
+        clearTimeout(timer);
+    };
   }, [visible]);
 
-  // --- HANDLERS ---
   const handleBlur = () => {
     Keyboard.dismiss();
     setQuery('');
@@ -88,15 +90,10 @@ export function AnimatedSearch({
     handleBlur();
   };
 
-  // Scroll Handler to detect bottom
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 20;
-    
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-      if (onLoadMore) {
-        onLoadMore();
-      }
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 20) {
+      onLoadMore?.();
     }
   };
 
@@ -104,7 +101,6 @@ export function AnimatedSearch({
 
   return (
     <View style={[styles.fullscreenOverlay, { paddingTop: insets.top + 10 }]}>
-      {/* Backdrop to dismiss on tap */}
       <Pressable style={styles.backdrop} onPress={handleBlur} />
       
       <Animated.View 
@@ -112,28 +108,27 @@ export function AnimatedSearch({
         exiting={FadeOut.duration(150)}
         style={styles.container}
       >
-        
-        {/* --- SEARCH BAR --- */}
         <View style={[
           styles.searchBar, 
           { backgroundColor: isDark ? '#262626' : '#E5E7EB' }
         ]}>
-          {/* Icon is FIRST. In RTL, First = Right. */}
           <IconSymbol
             name="magnifyingglass"
             size={18}
             color={Colors[theme].icon}
-            style={{ marginEnd: 8 }} // Use marginEnd for logical spacing
+            style={{ marginEnd: 8 }} 
           />
           
           <TextInput
+            ref={inputRef}
             style={[styles.input, { color: Colors[theme].text }]}
             placeholder={placeholder}
             placeholderTextColor="#8E8E93"
             value={query}
             onChangeText={handleTextChange}
-            autoFocus={true}
-            // textAlign="right" // REMOVED: Default is 'start' (Right in RTL)
+            // textAlign is handled by React Native automatically for Hebrew usually, 
+            // but explicit 'right' on iOS often helps with cursor placement.
+            textAlign={Platform.OS === 'ios' ? 'right' : undefined} 
           />
           
           {loading && results.length === 0 ? (
@@ -145,7 +140,6 @@ export function AnimatedSearch({
           ) : null}
         </View>
 
-        {/* --- POP-UP SUGGESTIONS --- */}
         {results.length > 0 && (
           <Animated.View 
             entering={FadeIn.duration(200)} 
@@ -165,7 +159,7 @@ export function AnimatedSearch({
               >
                 {results.map((item, index) => (
                   <Animated.View 
-                    key={`${item.type}-${item.id}`}
+                    key={`${item.type}-${item.id}-${index}`}
                     layout={Layout.springify()} 
                     style={[
                       styles.itemRow,
@@ -211,12 +205,6 @@ export function AnimatedSearch({
                     </Pressable>
                   </Animated.View>
                 ))}
-
-                {loading && results.length > 0 && (
-                   <View style={{ padding: 10 }}>
-                      <ActivityIndicator size="small" color={Colors[theme].icon} />
-                   </View>
-                )}
               </Animated.ScrollView>
             </View>
           </Animated.View>
@@ -229,7 +217,8 @@ export function AnimatedSearch({
 const styles = StyleSheet.create({
   fullscreenOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
+    zIndex: 9999, // Fix: Ensure it sits above everything
+    elevation: 50, // Fix: Android elevation to show above FAB/Dialogs
     justifyContent: 'flex-start',
     alignItems: 'center',
   },
@@ -242,7 +231,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
   searchBar: {
-    flexDirection: 'row', // CHANGED: 'row' is standard. RTL flips it automatically.
+    flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -252,9 +241,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     paddingVertical: 0,
-    // marginEnd: 8, // Moved to Icon to keep consistent spacing
-    // writingDirection: 'rtl', // REMOVED: Native handles this
-    // textAlign: 'right', // REMOVED: Default is 'start'
+    writingDirection: 'rtl',
   },
   suggestionsWrapper: {
     marginTop: 8,
@@ -270,7 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pressableItem: {
-    flexDirection: 'row', // CHANGED: 'row' automatically flips in RTL
+    flexDirection: 'row', 
     alignItems: 'flex-start',
     padding: 16,
     paddingVertical: 18,
@@ -278,12 +265,10 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontSize: 16,
     fontWeight: '500',
-    // textAlign: 'right', // REMOVED
   },
   itemSubLabel: {
     fontSize: 12,
     color: '#8E8E93',
     marginTop: 2,
-    // textAlign: 'right', // REMOVED
   },
 });
