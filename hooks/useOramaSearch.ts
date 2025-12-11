@@ -34,64 +34,42 @@ export function useOramaSearch(query: string) {
   
   const flexIndex = useRef<any>(null);
   const allBooksRef = useRef<string[]>([]);
-  const versesStore = useRef<Map<string, any>>(new Map()); // Store full verse data to avoid DB lookups during search
 
-  // 1. Initialize FlexSearch
+  // 1. Initialize FlexSearch from Pre-computed Index
   useEffect(() => {
     async function init() {
       if (flexIndex.current) return;
-      console.log('[FlexSearch] Initializing...');
+      console.log('[FlexSearch] Initializing from asset...');
       
       try {
         const bookRows = await db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים ORDER BY מזהה ASC');
         allBooksRef.current = bookRows.map(b => b.שם);
 
-        // CONFIG: FlexSearch for Hebrew
+        // Standard Config
         flexIndex.current = new FlexSearch.Document({
             id: "id",
-            index: ["cleanText"], // Only index clean text for speed (text with Nikkud is covered by store)
-            tokenize: "forward", // Good for partial matches
+            index: ["cleanText"], 
+            tokenize: "forward", 
             context: false,
             cache: true,
             worker: false
         });
 
-        const startTime = performance.now();
-        const allVerses = await db.getAllAsync(`
-          SELECT 
-            p.מזהה as id, 
-            s.שם as book, 
-            p.פרק as chapter, 
-            p.פסוק as verse, 
-            p.תוכן as text,
-            p.clean_text as cleanText
-          FROM פסוקים p 
-          JOIN ספרים s ON p.מזהה_ספר = s.מזהה
-        `);
-
-        console.log(`[FlexSearch] Loaded ${allVerses.length} verses from DB.`);
-
-        // Batch add
-        allVerses.forEach((v: any) => {
-            const id = String(v.id);
-            const doc = {
-                id: id,
-                book: v.book,
-                chapter: v.chapter,
-                verse: v.verse,
-                text: v.text,
-                cleanText: v.cleanText
-            };
-            
-            flexIndex.current.add(doc);
-            versesStore.current.set(id, doc);
+        // Load pre-computed index
+        console.time('Import Index');
+        // We use require to load the JSON synchronously (Metro bundles it)
+        const indexData = require('@/assets/search-index.json');
+        
+        // Import keys
+        const keys = Object.keys(indexData);
+        keys.forEach(key => {
+            flexIndex.current.import(key, indexData[key]);
         });
+        console.timeEnd('Import Index');
         
-        console.log(`[FlexSearch] Indexing complete in ${Math.round(performance.now() - startTime)}ms`);
-        
-        // --- SANITY CHECK ---
+        // Sanity Check
         const sanity = await flexIndex.current.search("בראשית", { limit: 1 });
-        console.log(`[FlexSearch] Sanity check "בראשית" found matches:`, sanity.length > 0);
+        console.log(`[FlexSearch] Sanity check "בראשית" matches:`, sanity.length > 0);
         
         setIsReady(true);
       } catch (e) {
@@ -110,15 +88,13 @@ export function useOramaSearch(query: string) {
       }
 
       setLoading(true);
-      // Clean query for better matching, though FlexSearch handles some
       const cleanQuery = query.replace(/[\u0591-\u05C7]/g, "").trim();
       
       try {
         const navResults: SearchResult[] = [];
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
-        
-        // --- NAVIGATION SEARCH (Same logic as before) ---
 
+        // --- NAVIGATION SEARCH ---
         for (const book of sortedBooks) {
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
@@ -142,7 +118,6 @@ export function useOramaSearch(query: string) {
               const verseEndNum = parsed.verseEndStr ? parseHebrewNumeral(parsed.verseEndStr) : 0;
 
               if (chapNum > 0 && chapNum <= 151) {
-                // Fetch specific verse for navigation prompt
                 let sql = '';
                 let params: any[] = [];
                 
@@ -182,52 +157,55 @@ export function useOramaSearch(query: string) {
           }
         }
 
-        // --- FULL TEXT SEARCH (FlexSearch) ---
+        // --- FULL TEXT SEARCH ---
         let formattedResults: SearchResult[] = [];
         
         if (cleanQuery.length >= 2) {
-            // Search in both fields
-            const searchRes = await flexIndex.current.search(cleanQuery, {
-                limit: 20,
-                enrich: true // Get the full document back? No, FlexSearch Document search returns field specific results.
-            });
-            
-            // FlexSearch Document result format: [{ field: 'cleanText', result: [id1, id2...] }]
-            // If enrichment is not easy, we just get IDs and look up in versesStore.
-            
-            // Let's assume we get IDs.
-            // Using "enrich: false" returns IDs.
-            // But wait, "enrich: true" in FlexSearch returns document content depending on config.
-            // It is safer to just get IDs and map from our Map.
-            
             const rawResults = await flexIndex.current.search(cleanQuery, { limit: 20 });
-            // rawResults is array of results for each field: [{ field: 'cleanText', result: [id, id...] }, ...]
+            // rawResults: [{ field: 'cleanText', result: [id, id...] }]
             
             const uniqueIds = new Set<string>();
             rawResults.forEach((fieldRes: any) => {
                 fieldRes.result.forEach((id: string) => uniqueIds.add(id));
             });
+            
+            const idsArray = Array.from(uniqueIds);
 
-            const hits: any[] = [];
-            uniqueIds.forEach(id => {
-                if (versesStore.current.has(id)) {
-                    hits.push(versesStore.current.get(id));
-                }
-            });
-
-            formattedResults = hits.map(hit => ({
-              type: 'verse',
-              id: Number(hit.id),
-              label: `${hit.book} ${toHebrewNumeral(Number(hit.chapter))}:${toHebrewNumeral(Number(hit.verse))}`,
-              subLabel: hit.text,
-              data: {
-                id: Number(hit.id),
-                book_name: hit.book,
-                chapter: Number(hit.chapter),
-                verse: Number(hit.verse),
-                text: hit.text
-              }
-            }));
+            if (idsArray.length > 0) {
+                // Fetch full verse details from DB
+                const placeholders = idsArray.map(() => '?').join(',');
+                const verses = await db.getAllAsync(`
+                    SELECT 
+                        p.מזהה as id, 
+                        s.שם as book, 
+                        p.פרק as chapter, 
+                        p.פסוק as verse, 
+                        p.תוכן as text
+                    FROM פסוקים p 
+                    JOIN ספרים s ON p.מזהה_ספר = s.מזהה
+                    WHERE p.מזהה IN (${placeholders})
+                `, idsArray);
+                
+                // Map back to maintain order if possible
+                const versesMap = new Map(verses.map((v: any) => [String(v.id), v]));
+                
+                formattedResults = idsArray
+                    .map(id => versesMap.get(String(id)))
+                    .filter(Boolean)
+                    .map((v: any) => ({
+                        type: 'verse',
+                        id: Number(v.id),
+                        label: `${v.book} ${toHebrewNumeral(v.chapter)}:${toHebrewNumeral(v.verse)}`,
+                        subLabel: v.text,
+                        data: {
+                            id: Number(v.id),
+                            book_name: v.book,
+                            chapter: Number(v.chapter),
+                            verse: Number(v.verse),
+                            text: v.text
+                        }
+                    }));
+            }
         }
 
         // Deduplication
