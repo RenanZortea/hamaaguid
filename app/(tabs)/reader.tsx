@@ -7,7 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { SearchResult, useBibleChapter, useUnifiedSearch } from '@/hooks/useBible';
+import { useBibleChapter } from '@/hooks/useBible';
+import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { toHebrewNumeral } from '@/utils/hebrewNumerals';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -135,7 +136,7 @@ export default function ReaderScreen() {
 
   // 1. Setup Search State
   const [searchQuery, setSearchQuery] = useState('');
-  const { results: searchResults, loading: searchLoading, loadMore } = useUnifiedSearch(searchQuery);
+  const { results: searchResults, loading: searchLoading } = useOramaSearch(searchQuery);
 
   // Handle Navigation Params (from Search)
   useEffect(() => {
@@ -310,7 +311,6 @@ export default function ReaderScreen() {
         loading={searchLoading}
         onSearchChange={setSearchQuery}
         onSelect={handleSearchSelect}
-        onLoadMore={loadMore}
       />
     </ThemedView>
   );

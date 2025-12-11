@@ -22,7 +22,7 @@ import Animated, {
   FadeOut,
   Layout
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 1. Import this
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- CONFIG ---
 const SPRING_CONFIG = { damping: 10, stiffness: 120 };
@@ -52,7 +52,7 @@ export function AnimatedSearch({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
-  const insets = useSafeAreaInsets(); // 2. Get insets
+  const insets = useSafeAreaInsets();
 
   // State
   const [query, setQuery] = useState('');
@@ -103,7 +103,6 @@ export function AnimatedSearch({
   if (!visible) return null;
 
   return (
-    // 3. Update style to use insets.top and flex-start
     <View style={[styles.fullscreenOverlay, { paddingTop: insets.top + 10 }]}>
       {/* Backdrop to dismiss on tap */}
       <Pressable style={styles.backdrop} onPress={handleBlur} />
@@ -119,12 +118,14 @@ export function AnimatedSearch({
           styles.searchBar, 
           { backgroundColor: isDark ? '#262626' : '#E5E7EB' }
         ]}>
+          {/* Icon is FIRST. In RTL, First = Right. */}
           <IconSymbol
             name="magnifyingglass"
             size={18}
             color={Colors[theme].icon}
-            style={{ marginRight: 8 }}
+            style={{ marginEnd: 8 }} // Use marginEnd for logical spacing
           />
+          
           <TextInput
             style={[styles.input, { color: Colors[theme].text }]}
             placeholder={placeholder}
@@ -132,7 +133,7 @@ export function AnimatedSearch({
             value={query}
             onChangeText={handleTextChange}
             autoFocus={true}
-            textAlign="right"
+            // textAlign="right" // REMOVED: Default is 'start' (Right in RTL)
           />
           
           {loading && results.length === 0 ? (
@@ -229,9 +230,8 @@ const styles = StyleSheet.create({
   fullscreenOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    justifyContent: 'flex-start', // 4. CHANGED from 'center' to 'flex-start'
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    // paddingTop is now handled dynamically in the inline style above
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -240,10 +240,9 @@ const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
-    // marginBottom: 100, // 5. REMOVED (no longer needed since we are top-aligned)
   },
   searchBar: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row', // CHANGED: 'row' is standard. RTL flips it automatically.
     alignItems: 'center',
     borderRadius: 12,
     paddingHorizontal: 10,
@@ -253,8 +252,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     paddingVertical: 0,
-    marginRight: 8,
-    writingDirection: 'rtl',
+    // marginEnd: 8, // Moved to Icon to keep consistent spacing
+    // writingDirection: 'rtl', // REMOVED: Native handles this
+    // textAlign: 'right', // REMOVED: Default is 'start'
   },
   suggestionsWrapper: {
     marginTop: 8,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pressableItem: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row', // CHANGED: 'row' automatically flips in RTL
     alignItems: 'flex-start',
     padding: 16,
     paddingVertical: 18,
@@ -278,12 +278,12 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontSize: 16,
     fontWeight: '500',
-    textAlign: 'right',
+    // textAlign: 'right', // REMOVED
   },
   itemSubLabel: {
     fontSize: 12,
     color: '#8E8E93',
     marginTop: 2,
-    textAlign: 'right',
+    // textAlign: 'right', // REMOVED
   },
 });
