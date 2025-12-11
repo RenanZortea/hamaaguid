@@ -3,12 +3,12 @@ import { create, insertMultiple, Results, search } from '@orama/orama';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 
-// Define schema for Orama
+// 1. CHANGE SCHEMA: Use 'string' for everything to prevent TypeErrors
 const BIBLE_SCHEMA = {
-  id: 'string', // Orama requires ID to be a string
+  id: 'string',
   book: 'string',
-  chapter: 'number',
-  verse: 'number',
+  chapter: 'string', // Changed from number
+  verse: 'string',   // Changed from number
   text: 'string',
   cleanText: 'string',
 } as const;
@@ -21,9 +21,9 @@ export interface SearchResult {
   data?: any;
 }
 
-// Helper to strip Nikkud in JS (for the search query input)
+// Helper to strip Nikkud (Vowels)
 function removeNikkud(text: string): string {
-  return text.replace(/[\u0591-\u05C7]/g, "");
+  return text ? text.replace(/[\u0591-\u05C7]/g, "") : "";
 }
 
 export function useOramaSearch(query: string) {
@@ -31,58 +31,66 @@ export function useOramaSearch(query: string) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  
+   
   const oramaDb = useRef<any>(null);
   const allBooksRef = useRef<string[]>([]);
 
-  // 1. INITIALIZE: Load all verses from SQLite into Orama + Load Books
+  // --- INITIALIZATION ---
   useEffect(() => {
     async function init() {
       if (oramaDb.current) return;
 
+      console.log("DEBUG: Starting Orama initialization...");
       try {
-        // Load Books for Navigation logic
         const bookRows = await db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים ORDER BY מזהה ASC');
         allBooksRef.current = bookRows.map(b => b.שם);
 
-        // Create Orama Index
         oramaDb.current = await create({
           schema: BIBLE_SCHEMA,
         });
 
-        // Fetch all verses including clean_text
+        // Fetch Raw Data
         const allVerses = await db.getAllAsync(`
           SELECT 
             p.מזהה as id, 
             s.שם as book, 
             p.פרק as chapter, 
             p.פסוק as verse, 
-            p.תוכן as text,
-            p.clean_text as cleanText
+            p.תוכן as text
+            -- We ignore SQL clean_text and generate it in JS to be safe
           FROM פסוקים p 
           JOIN ספרים s ON p.מזהה_ספר = s.מזהה
         `);
 
-        // Insert into Orama - MUST convert id to string
-        const formattedVerses = allVerses.map(v => ({
-          ...v,
-          id: String(v.id), // Ensure ID is a string for Orama
-        }));
+        // FIX 1 & 2: Generate cleanText manually AND convert numbers to strings
+        const formattedVerses = allVerses.map(v => {
+            const textVal = v.text || '';
+            return {
+                id: String(v.id || ''), 
+                book: v.book || '',
+                chapter: String(v.chapter || '0'), // Force String
+                verse: String(v.verse || '0'),     // Force String
+                text: textVal,
+                cleanText: removeNikkud(textVal),  // Generate clean text on the fly
+            };
+        });
 
         await insertMultiple(oramaDb.current, formattedVerses);
+        
+        console.log(`DEBUG: Orama initialized with ${formattedVerses.length} verses.`);
         setIsReady(true);
       } catch (e) {
-        console.error('Failed to initialize Orama:', e);
+        console.error('DEBUG: Failed to initialize Orama:', e);
       }
     }
 
     init();
   }, [db]);
 
-  // 2. SEARCH + NAVIGATION LOGIC
+  // --- SEARCH LOGIC ---
   useEffect(() => {
     async function runSearch() {
-      if (!isReady || !query || query.length < 2) {
+      if (!isReady || !oramaDb.current || !query || query.length < 2) {
         setResults([]);
         return;
       }
@@ -92,29 +100,32 @@ export function useOramaSearch(query: string) {
       
       try {
         let navResult: SearchResult | null = null;
-        
+        let term = cleanQuery;
+        let where: any = {}; 
+
         // --- A. NAVIGATION LOGIC ---
-        // Try to match "Book Chapter" or "Book Chapter:Verse"
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
         
         for (const book of sortedBooks) {
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
-            const parts = remainder.split(' ');
+            const parts = remainder.split(' ').filter(p => p.length > 0);
             
-            if (parts.length > 0) {
+            if (parts.length <= 2) {
               const chapStr = parts[0];
               const verseStr = parts.length > 1 ? parts[1] : null;
 
               const chapNum = parseHebrewNumeral(chapStr);
+              
               if (chapNum > 0) {
-                 // Check if chapter/verse exists in DB to confirm valid navigation
+                // Check if exists in SQL to confirm it's valid
                 let sql = '';
                 let params: any[] = [];
                 let isVerseSpecific = false;
+                let verseNum = 0;
 
                 if (verseStr) {
-                  const verseNum = parseHebrewNumeral(verseStr);
+                  verseNum = parseHebrewNumeral(verseStr);
                   if (verseNum > 0) {
                      sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? AND p.פסוק = ? LIMIT 1`;
                      params = [book, chapNum, verseNum];
@@ -122,31 +133,43 @@ export function useOramaSearch(query: string) {
                   }
                 }
                 
-                if (!sql) {
-                   // Just Chapter check
+                if (!sql && !verseStr) {
                    sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? LIMIT 1`;
                    params = [book, chapNum];
                 }
 
-                const row = await db.getFirstAsync<{מזהה: number, תוכן: string}>(sql, params);
+                if (sql) {
+                  const row = await db.getFirstAsync<{מזהה: number, תוכן: string}>(sql, params);
 
-                if (row) {
-                  const verseNum = isVerseSpecific && verseStr ? parseHebrewNumeral(verseStr) : 1;
-                  const navId = isVerseSpecific ? row.מזהה : -1;
-                  
-                  navResult = {
-                    type: 'verse',
-                    id: `nav-${book}-${chapNum}-${verseStr || 'all'}`,
-                    label: `${book} ${toHebrewNumeral(chapNum)}${isVerseSpecific ? ':' + toHebrewNumeral(verseNum) : ''}`,
-                    subLabel: 'נווט למיקום זה',
-                    data: {
-                      id: navId, 
-                      book_name: book,
-                      chapter: chapNum,
-                      verse: verseNum,
-                      text: row.תוכן
+                  if (row) {
+                    navResult = {
+                      type: 'verse',
+                      id: `nav-${book}-${chapNum}-${verseStr || 'all'}`,
+                      label: `${book} ${toHebrewNumeral(chapNum)}${isVerseSpecific ? ':' + toHebrewNumeral(verseNum) : ''}`,
+                      subLabel: 'נווט למיקום זה',
+                      data: {
+                        id: isVerseSpecific ? row.מזהה : -1, 
+                        book_name: book,
+                        chapter: chapNum,
+                        verse: isVerseSpecific ? verseNum : 1,
+                        text: row.תוכן
+                      }
+                    };
+
+                    // Switch to Strict Mode (Filter)
+                    if (isVerseSpecific || (!verseStr && parts.length === 1)) {
+                        console.log("DEBUG: Strict Mode ON");
+                        term = ''; 
+                        // FIX: Pass numbers as STRINGS to match Schema
+                        where = {
+                          book: book,
+                          chapter: String(chapNum), 
+                        };
+                        if (isVerseSpecific) {
+                            where.verse = String(verseNum);
+                        }
                     }
-                  };
+                  }
                 }
               }
             }
@@ -154,25 +177,40 @@ export function useOramaSearch(query: string) {
           }
         }
 
-        // --- B. ORAMA FULL TEXT SEARCH ---
+        // --- B. ORAMA SEARCH ---
+        if (!oramaDb.current) return;
+
+        const safeTerm = term ?? ""; 
+
+        // Sanitize Where Object
+        const safeWhere = { ...where };
+        Object.keys(safeWhere).forEach(key => {
+            if (safeWhere[key] === undefined || safeWhere[key] === null) {
+                delete safeWhere[key];
+            }
+        });
+
+        console.log("DEBUG: Running Search...", { term: safeTerm, where: safeWhere });
+
         const searchResult: Results<typeof BIBLE_SCHEMA> = await search(oramaDb.current, {
-          term: cleanQuery,
+          term: safeTerm,
+          where: safeWhere,
           properties: ['cleanText', 'book', 'text'], 
           limit: 20,
-          threshold: 0.2, 
+          threshold: 0, // Lower threshold to ensure matches
           boost: { book: 2 },
         });
 
         const formattedResults: SearchResult[] = searchResult.hits.map(hit => ({
           type: 'verse',
-          id: Number(hit.document.id), // Convert back to number for app compatibility
-          label: `${hit.document.book} ${toHebrewNumeral(hit.document.chapter)}:${toHebrewNumeral(hit.document.verse)}`,
+          id: Number(hit.document.id),
+          label: `${hit.document.book} ${toHebrewNumeral(Number(hit.document.chapter))}:${toHebrewNumeral(Number(hit.document.verse))}`,
           subLabel: hit.document.text,
           data: {
-            id: Number(hit.document.id), // Convert back to number
+            id: Number(hit.document.id),
             book_name: hit.document.book,
-            chapter: hit.document.chapter,
-            verse: hit.document.verse,
+            chapter: Number(hit.document.chapter),
+            verse: Number(hit.document.verse),
             text: hit.document.text
           }
         }));
@@ -183,7 +221,7 @@ export function useOramaSearch(query: string) {
 
         setResults(formattedResults);
       } catch (e) {
-        console.error('Search failed:', e);
+        console.error('DEBUG: Search failed:', e);
       } finally {
         setLoading(false);
       }
