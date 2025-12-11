@@ -21,10 +21,10 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="profile"
+        name="index"
         options={{
-          title: 'פרופיל',
-          tabBarIcon: ({ color }) => <Circle size={28} color={color} />,
+          title: 'בית',
+          tabBarIcon: ({ color }) => <House size={28} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -35,10 +35,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="profile"
         options={{
-          title: 'בית',
-          tabBarIcon: ({ color }) => <House size={28} color={color} />,
+          title: 'פרופיל',
+          tabBarIcon: ({ color }) => <Circle size={28} color={color} />,
         }}
       />
     </Tabs>

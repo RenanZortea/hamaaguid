@@ -45,13 +45,15 @@
       ],
       "expo-sqlite",
       "@react-native-firebase/app",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
+      "supportsRTL": true,
       "router": {},
       "eas": {
         "projectId": "bb38be41-7b40-4076-ba2d-063840bf73d7"

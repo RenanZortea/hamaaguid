@@ -2,15 +2,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ChevronLeft, Clock, Heart, LucideIcon, Users, LogOut, LogIn } from 'lucide-react-native';
+import { ChevronLeft, Clock, Heart, LogIn, LogOut, LucideIcon, Users } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Firebase & Google Imports
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signOut, User } from 'firebase/auth';
 import { auth } from '../../config/firebaseConfig.ts';
-import { onAuthStateChanged, signOut, signInWithCredential, GoogleAuthProvider, User } from 'firebase/auth';
 
 interface MenuItemProps {
   icon: LucideIcon;
@@ -27,14 +27,26 @@ function MenuItem({ icon: Icon, label, onPress, color }: MenuItemProps) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <ThemedView style={styles.menuItem}>
-        {/* Left-pointing chevron for "forward" navigation in RTL */}
-        <ChevronLeft size={20} color={Colors[theme].icon || '#888'} />
+        {/* ORDER MATTERS FOR RTL:
+           1. First Child = Start (Right in Hebrew)
+           2. Middle Child = Middle
+           3. Last Child  = End (Left in Hebrew)
+        */}
+
+        {/* 1. Icon goes FIRST (Visual Right in RTL) */}
+        <Icon size={24} color={iconColor} style={styles.menuIcon} />
         
+        {/* 2. Text in Middle */}
         <ThemedView style={styles.menuLabelContainer}>
-          <ThemedText type="defaultSemiBold" style={{ textAlign: 'right', color: color }}>{label}</ThemedText>
+          {/* REMOVE textAlign: 'right' - Default is 'left' which flips to Right in RTL */}
+          <ThemedText type="defaultSemiBold" style={color ? { color } : undefined}>
+            {label}
+          </ThemedText>
         </ThemedView>
         
-        <Icon size={24} color={iconColor} style={styles.menuIcon} />
+        {/* 3. Chevron goes LAST (Visual Left in RTL) */}
+        {/* We keep ChevronLeft because "Forward" in Hebrew points to the Left (<) */}
+        <ChevronLeft size={20} color={Colors[theme].icon || '#888'} />
       </ThemedView>
     </TouchableOpacity>
   );
@@ -140,27 +152,37 @@ export default function ProfileScreen() {
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
               <MenuItem icon={Users} label="חברים" onPress={() => {}} />
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+              
               <MenuItem icon={Clock} label="אחרונים" onPress={() => {}} />
               
-              <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
-              
-              {/* Dynamic Login/Logout Button */}
-              {user ? (
-                <MenuItem 
-                  icon={LogOut} 
-                  label="התנתק" 
-                  onPress={handleSignOut} 
-                  color="#FF3B30" // Red color for logout
-                />
-              ) : (
-                <MenuItem 
-                  icon={LogIn} 
-                  label="התחבר עם Google" 
-                  onPress={onGoogleButtonPress} 
-                  color="#007AFF" // Blue color for login
-                />
+              {/* Dynamic Logout Button (Inside Menu) */}
+              {user && (
+                <>
+                  <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+                  <MenuItem 
+                    icon={LogOut} 
+                    label="התנתק" 
+                    onPress={handleSignOut} 
+                    color="#FF3B30" // Red color for logout
+                  />
+                </>
               )}
             </View>
+
+            {/* Premium Login Button (Outside Menu) */}
+            {!user && (
+              <TouchableOpacity 
+                style={styles.loginButton} 
+                onPress={onGoogleButtonPress}
+                activeOpacity={0.8}
+              >
+                {/* Icon color changed to dark because button is white */}
+                <LogIn size={20} color="#333" /> 
+                <ThemedText style={styles.loginButtonText}>
+                  התחבר עם Google
+                </ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
 
         </ScrollView>
@@ -207,16 +229,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sectionTitle: {
-    textAlign: 'right',
+    // REMOVED: textAlign: 'right' (System handles this)
+    // REMOVED: marginRight: 4 (Use marginLeft in LTR code if you want indentation)
     marginBottom: 12,
-    marginRight: 4,
   },
   menuList: {
     borderRadius: 16,
     overflow: 'hidden',
   },
   menuItem: {
-    flexDirection: 'row',
+    flexDirection: 'row', // Standard Row
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -227,12 +249,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
+    // alignSelf: 'flex-start', // Ensure text block aligns to start
   },
   menuIcon: {
-    marginLeft: 0,
+    // No specific margins needed if using standard flex logic, 
+    // but you can add marginRight (which flips to Left) to separate from text if needed.
   },
   separator: {
     height: 1,
     width: '100%',
+  },
+  loginButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF', // White background
+    paddingVertical: 12,        // Smaller padding (was 16)
+    borderRadius: 12,           // Slightly smaller radius (optional, kept proportional)
+    marginTop: 24,
+    shadowColor: '#000',        // Standard shadow for white button
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 8,                     // Smaller gap (was 12)
+    borderWidth: 1,             
+    borderColor: '#E0E0E0',     // Subtle border for contrast on white backgrounds
+  },
+  loginButtonText: {
+    color: '#333333',           // Dark text
+    fontSize: 16,               // Smaller font (was 18)
+    fontWeight: '600',
+    fontFamily: 'Rubik',
   },
 });

@@ -9,8 +9,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as Updates from 'expo-updates';
 import { useEffect } from "react";
-import { Platform, StyleSheet } from "react-native";
+import { I18nManager, Platform, StyleSheet } from "react-native";
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -33,6 +34,18 @@ export default function RootLayout() {
   });
 
   const colorScheme = useColorScheme();
+
+  // Check if RTL is enabled
+  useEffect(() => {
+    if (!I18nManager.isRTL) {
+      I18nManager.allowRTL(true);
+      I18nManager.forceRTL(true);
+      // RTL changes require a restart to take effect
+      if (Platform.OS !== 'web') {
+        Updates.reloadAsync();
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (loaded) {

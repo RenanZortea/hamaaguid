@@ -343,8 +343,6 @@ const styles = StyleSheet.create({
   chapterText: {
     fontSize: 28,
     lineHeight: 48,
-    textAlign: 'right', // Align text to the right for Hebrew
-    writingDirection: 'rtl',
     fontFamily: 'TaameyFrank',
   },
   verseNumber: {
@@ -360,7 +358,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     bottom: 30,
-    left: 24,
+    right: 24,
     zIndex: 50,
   },
 });
