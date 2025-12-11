@@ -3,7 +3,9 @@ import { EmptyCard } from '@/components/EmptyCard';
 import { PageTransition } from '@/components/PageTransition';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
-import { SearchResult, useUnifiedSearch } from '@/hooks/useBible';
+// CHANGE 1: Import SearchResult from useOramaSearch (or keep shared interface)
+// CHANGE 2: Import useOramaSearch instead of useUnifiedSearch
+import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -18,7 +20,9 @@ export default function HomeScreen() {
   // 1. Setup Search State
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { results: searchResults, loading: searchLoading, loadMore } = useUnifiedSearch(searchQuery);
+  
+  // CHANGE 3: Use the Orama hook which now supports loadMore
+  const { results: searchResults, loading: searchLoading, loadMore } = useOramaSearch(searchQuery);
 
   // 2. Handle Navigation when an item is selected
   const handleSearchSelect = (item: SearchResult) => {
@@ -69,7 +73,6 @@ export default function HomeScreen() {
           {/* 3. Search Bar Trigger */}
           <Pressable 
             onPress={() => setSearchVisible(true)}
-            // Hide opacity (invisible) but keep layout space to prevent jumps
             style={{ opacity: searchVisible ? 0 : 1 }} 
           >
             <View pointerEvents="none">

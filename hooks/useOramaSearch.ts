@@ -3,7 +3,6 @@ import { create, insertMultiple, search } from '@orama/orama';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 
-// Use 'string' for everything to prevent TypeErrors
 const BIBLE_SCHEMA = {
   id: 'string',
   book: 'string',
@@ -25,21 +24,9 @@ function removeNikkud(text: string): string {
   return text ? text.replace(/[\u0591-\u05C7]/g, "") : "";
 }
 
-// Improved Regex: Handles spaces/colons/dashes more reliably
 function parseLocation(input: string) {
   if (!input || !input.trim()) return null;
-
   const cleanInput = input.trim();
-
-  // Regex Breakdown:
-  // ^([א-ת"']+)       -> Group 1: Chapter (Hebrew letters/quotes)
-  // (?:[\s:]+         -> Separator: Space or Colon
-  //   ([א-ת"']+)      -> Group 2: Start Verse
-  //   (?:[\s\-]+      -> Separator: Space or Dash
-  //     ([א-ת"']+)    -> Group 3: End Verse
-  //   )?              -> End Verse is optional
-  // )?                -> Verse part is optional
-  // $                 -> End of string
   const match = cleanInput.match(/^([א-ת"']+)(?:[\s:]+([א-ת"']+)(?:[\s\-]+([א-ת"']+))?)?$/);
 
   if (!match) return null;
@@ -60,6 +47,7 @@ export function useOramaSearch(query: string) {
   const oramaDb = useRef<any>(null);
   const allBooksRef = useRef<string[]>([]);
 
+  // 1. Initialize Orama
   useEffect(() => {
     async function init() {
       if (oramaDb.current) return;
@@ -101,10 +89,9 @@ export function useOramaSearch(query: string) {
     init();
   }, [db]);
 
+  // 2. Run Search
   useEffect(() => {
     async function runSearch() {
-      // Allow single character search for "א" if needed, but usually 2 is better.
-      // If debugging "triggers", lowering to 1 can help confirm it runs.
       if (!isReady || !oramaDb.current || !query || query.length < 1) {
         setResults([]);
         return;
@@ -115,14 +102,34 @@ export function useOramaSearch(query: string) {
       
       try {
         const navResults: SearchResult[] = [];
-        let term = cleanQuery;
         
-        // Sort books by length (desc) so "3 John" is checked before "John"
+        // BRANCH 2 & 3: Check Book Names and Locations
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
         
         for (const book of sortedBooks) {
+          // Check if the query *starts* with this book name
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
+            
+            // --- BRANCH 2: Exact Book Name Match ---
+            // If the query is just the book name (e.g. "יוחנן ג"), offer to open the book.
+            if (remainder === '') {
+                navResults.push({
+                    type: 'verse', // Using 'verse' type to keep UI consistent, or add 'book' type support
+                    id: `nav-book-${book}`,
+                    label: book,
+                    subLabel: 'פתח את הספר',
+                    data: {
+                        book_name: book,
+                        chapter: 1, // Default to chapter 1
+                        verse: 1,
+                        text: ''
+                    }
+                });
+            }
+
+            // --- BRANCH 3: Book + Chapter Match ---
+            // If there is a remainder, try to parse it as a location (e.g. " ג" -> 3)
             const parsed = parseLocation(remainder);
 
             if (parsed) {
@@ -131,6 +138,7 @@ export function useOramaSearch(query: string) {
               const verseEndNum = parsed.verseEndStr ? parseHebrewNumeral(parsed.verseEndStr) : 0;
 
               if (chapNum > 0) {
+                // Fetch the specific verse or first verse of chapter to get ID
                 let sql = '';
                 let params: any[] = [];
                 
@@ -160,7 +168,7 @@ export function useOramaSearch(query: string) {
                       type: 'verse',
                       id: navId,
                       label: label,
-                      subLabel: 'נווט וסמן טווח', 
+                      subLabel: verseStartNum > 0 ? row.תוכן : 'נווט לפרק', 
                       data: {
                         id: verseStartNum > 0 ? row.מזהה : -1,
                         book_name: book,
@@ -174,23 +182,17 @@ export function useOramaSearch(query: string) {
                 }
               }
             }
-            // CRITICAL FIX: Removed 'break' here.
-            // This allows checking "John" (matching John 3) even after matching "3 John".
+            // Continue loop to find other overlapping matches (e.g. "3 John" vs "John 3")
           }
         }
 
-        // If we found strict navigation results (e.g., "John 3"), we typically hide generic text search results
-        // to avoid noise, unless no nav results were found.
-        if (navResults.length > 0) {
-             term = ""; 
-        }
-
-        // --- ORAMA SEARCH ---
+        // --- BRANCH 1: Text Search ---
+        // Always run text search, but append it after navigation results
         let formattedResults: SearchResult[] = [];
         
-        if (term && term.length >= 2 && oramaDb.current) {
+        if (cleanQuery.length >= 2 && oramaDb.current) {
             const searchResult = await search(oramaDb.current, {
-              term: term,
+              term: cleanQuery,
               properties: ['cleanText', 'book', 'text'], 
               limit: 20,
               threshold: 0,
@@ -212,7 +214,11 @@ export function useOramaSearch(query: string) {
             }));
         }
 
-        setResults([...navResults, ...formattedResults]);
+        // Deduplicate: If a navigation result matches a text result ID, prefer the navigation one.
+        const navIds = new Set(navResults.map(r => r.data?.id).filter(id => id > 0));
+        const filteredTextResults = formattedResults.filter(r => !navIds.has(Number(r.id)));
+
+        setResults([...navResults, ...filteredTextResults]);
 
       } catch (e) {
         console.error('Search error:', e);
