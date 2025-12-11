@@ -139,6 +139,7 @@ export default function ReaderScreen() {
   const { results: searchResults, loading: searchLoading } = useOramaSearch(searchQuery);
 
   // Handle Navigation Params (from Search)
+  // Handle Navigation Params (from Search)
   useEffect(() => {
     if (params.book) {
       setCurrentBook(Array.isArray(params.book) ? params.book[0] : params.book);
@@ -148,14 +149,42 @@ export default function ReaderScreen() {
         setCurrentChapter(1);
       }
       
-      if (params.highlightVerse) {
-        // We can't select it here immediately because 'verses' might be loading.
-        // We'll rely on the user seeing the verse or we can try to select it after load.
-        // For now, let's just clear selection to be safe.
+      // Handle Verse Selection / Range
+      if (params.highlightVerse) { // This corresponds to 'verse' in navigation
+        const startVerse = Number(params.highlightVerse);
+        const endVerse = params.endVerse ? Number(params.endVerse) : null;
+
+        if (!loading && verses.length > 0) {
+            // If verses are loaded, we can select immediately
+            if (endVerse) {
+                // Range Selection
+                const idsToObject: number[] = [];
+                // We need to find the ID for start and end verse. 
+                // Since we don't have a direct map of VerseNum -> ID without iterating, 
+                // and IDs might not be sequential numbers (they are DB IDs), we filter.
+                
+                // Optimized: Filter verses that are within the range
+                const rangeIds = verses
+                    .filter(v => v.verse >= startVerse && v.verse <= endVerse)
+                    .map(v => v.id);
+                
+                setSelectedVerseIds(rangeIds);
+            } else {
+                // Single Verse Selection
+                const targetVerse = verses.find(v => v.verse === startVerse);
+                if (targetVerse) {
+                    setSelectedVerseIds([targetVerse.id]);
+                }
+            }
+        } else {
+            // If loading, we might need a way to "pending" select. 
+            // For now, let's just retry when verses change.
+        }
+      } else {
         setSelectedVerseIds([]); 
       }
     }
-  }, [params.book, params.chapter, params.highlightVerse]);
+  }, [params.book, params.chapter, params.highlightVerse, params.endVerse, verses, loading]);
 
   // Search State
   const [searchVisible, setSearchVisible] = useState(false);
@@ -195,14 +224,20 @@ export default function ReaderScreen() {
   const handleSearchSelect = (item: SearchResult) => {
     if (item.type === 'book') {
       // item.data is the book object: { id, name }
-      setCurrentBook(item.label);
-      setCurrentChapter(1);
+      router.setParams({
+        book: item.label,
+        chapter: '1',
+        highlightVerse: '',
+        endVerse: ''
+      });
     } else {
-      // item.data is the verse object: { id, book_name, chapter, verse, text }
-      setCurrentBook(item.data.book_name);
-      setCurrentChapter(item.data.chapter);
-      // Select the verse
-      setSelectedVerseIds([item.data.id]);
+      // item.data is the verse object: { id, book_name, chapter, verse, text, endVerse? }
+      router.setParams({
+        book: item.data.book_name,
+        chapter: String(item.data.chapter),
+        highlightVerse: String(item.data.verse),
+        endVerse: item.data.endVerse ? String(item.data.endVerse) : ''
+      });
     }
     setSearchVisible(false);
     setSearchQuery('');

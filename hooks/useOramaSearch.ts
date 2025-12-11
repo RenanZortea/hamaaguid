@@ -26,6 +26,26 @@ function removeNikkud(text: string): string {
   return text ? text.replace(/[\u0591-\u05C7]/g, "") : "";
 }
 
+// Helper to handle both "Chapter Verse" (space) and "Chapter:Verse" (colon)
+function parseLocation(input: string) {
+  // Remove spaces around separators to normalize: "א : ב - ג" -> "א:ב-ג"
+  const normalized = input.replace(/\s*([:\-])\s*/g, '$1');
+  
+  // Regex to match: Chapter(:Verse(-EndVerse)?)?
+  // Group 1: Chapter
+  // Group 2: Start Verse (optional)
+  // Group 3: End Verse (optional)
+  const match = normalized.match(/^([א-ת"']+)(?::([א-ת"']+)(?:-([א-ת"']+))?)?$/);
+
+  if (!match) return null;
+
+  return {
+    chapterStr: match[1],
+    verseStartStr: match[2],
+    verseEndStr: match[3]
+  };
+}
+
 export function useOramaSearch(query: string) {
   const db = useSQLiteContext();
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -102,38 +122,33 @@ export function useOramaSearch(query: string) {
         let navResult: SearchResult | null = null;
         let term = cleanQuery;
         let where: any = {}; 
-
-        // --- A. NAVIGATION LOGIC ---
+        
+        // --- UPGRADED NAVIGATION LOGIC ---
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
         
         for (const book of sortedBooks) {
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
-            const parts = remainder.split(' ').filter(p => p.length > 0);
             
-            if (parts.length <= 2) {
-              const chapStr = parts[0];
-              const verseStr = parts.length > 1 ? parts[1] : null;
+            // USE THE NEW PARSER
+            const parsed = parseLocation(remainder);
 
-              const chapNum = parseHebrewNumeral(chapStr);
-              
+            if (parsed) {
+              const chapNum = parseHebrewNumeral(parsed.chapterStr);
+              const verseStartNum = parsed.verseStartStr ? parseHebrewNumeral(parsed.verseStartStr) : 0;
+              const verseEndNum = parsed.verseEndStr ? parseHebrewNumeral(parsed.verseEndStr) : 0;
+
               if (chapNum > 0) {
-                // Check if exists in SQL to confirm it's valid
+                // Determine what SQL to run based on what we parsed
                 let sql = '';
                 let params: any[] = [];
-                let isVerseSpecific = false;
-                let verseNum = 0;
-
-                if (verseStr) {
-                  verseNum = parseHebrewNumeral(verseStr);
-                  if (verseNum > 0) {
-                     sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? AND p.פסוק = ? LIMIT 1`;
-                     params = [book, chapNum, verseNum];
-                     isVerseSpecific = true;
-                  }
-                }
                 
-                if (!sql && !verseStr) {
+                if (verseStartNum > 0) {
+                   // Fetch the START verse text to show in the preview
+                   sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? AND p.פסוק = ? LIMIT 1`;
+                   params = [book, chapNum, verseStartNum];
+                } else {
+                   // Just Chapter
                    sql = `SELECT p.מזהה, p.תוכן FROM פסוקים p JOIN ספרים s ON p.מזהה_ספר = s.מזהה WHERE s.שם = ? AND p.פרק = ? LIMIT 1`;
                    params = [book, chapNum];
                 }
@@ -142,38 +157,45 @@ export function useOramaSearch(query: string) {
                   const row = await db.getFirstAsync<{מזהה: number, תוכן: string}>(sql, params);
 
                   if (row) {
+                    // Create a unique ID for the result item
+                    const navId = `nav-${book}-${chapNum}-${verseStartNum || 1}-${verseEndNum || 'end'}`;
+                    
+                    // Format the Label (e.g., "יוחנן א:א-ב")
+                    let label = `${book} ${toHebrewNumeral(chapNum)}`;
+                    if (verseStartNum > 0) {
+                        label += `:${toHebrewNumeral(verseStartNum)}`;
+                        if (verseEndNum > 0) {
+                            label += `-${toHebrewNumeral(verseEndNum)}`;
+                        }
+                    }
+
                     navResult = {
                       type: 'verse',
-                      id: `nav-${book}-${chapNum}-${verseStr || 'all'}`,
-                      label: `${book} ${toHebrewNumeral(chapNum)}${isVerseSpecific ? ':' + toHebrewNumeral(verseNum) : ''}`,
-                      subLabel: 'נווט למיקום זה',
+                      id: navId,
+                      label: label,
+                      subLabel: 'נווט וסמן טווח', // "Navigate and Highlight Range"
                       data: {
-                        id: isVerseSpecific ? row.מזהה : -1, 
+                        id: verseStartNum > 0 ? row.מזהה : -1,
                         book_name: book,
                         chapter: chapNum,
-                        verse: isVerseSpecific ? verseNum : 1,
+                        verse: verseStartNum > 0 ? verseStartNum : 1,
+                        // THIS IS THE KEY: Pass the end verse in data
+                        endVerse: verseEndNum > 0 ? verseEndNum : null, 
                         text: row.תוכן
                       }
                     };
 
-                    // Switch to Strict Mode (Filter)
-                    if (isVerseSpecific || (!verseStr && parts.length === 1)) {
-                        console.log("DEBUG: Strict Mode ON");
-                        term = ''; 
-                        // FIX: Pass numbers as STRINGS to match Schema
-                        where = {
-                          book: book,
-                          chapter: String(chapNum), 
-                        };
-                        if (isVerseSpecific) {
-                            where.verse = String(verseNum);
-                        }
-                    }
+                    // STRICT MODE: If we have specific coordinates, hide other fuzzy search results
+                    console.log("DEBUG: Navigation Range Detected");
+                    term = ''; // Clear search term to hide unrelated results
+                    
+                    // We can also filter the "List" to show only these verses if you want
+                    // But usually for navigation, you just show the one "Go To" button.
                   }
                 }
               }
             }
-            break; 
+            break; // Stop checking other books
           }
         }
 
