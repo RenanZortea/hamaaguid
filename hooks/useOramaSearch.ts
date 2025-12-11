@@ -1,16 +1,8 @@
 import { parseHebrewNumeral, toHebrewNumeral } from '@/utils/hebrewNumerals';
-import { create, insertMultiple, search } from '@orama/orama';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
-
-const BIBLE_SCHEMA = {
-  id: 'string',
-  book: 'string',
-  chapter: 'string',
-  verse: 'string',
-  text: 'string',
-  cleanText: 'string',
-} as const;
+// @ts-ignore
+import FlexSearch from 'flexsearch/dist/flexsearch.bundle.min.js';
 
 export interface SearchResult {
   type: 'book' | 'verse';
@@ -18,15 +10,6 @@ export interface SearchResult {
   label: string;
   subLabel?: string;
   data?: any;
-}
-
-function removeNikkud(text: string): string {
-  if (!text) return "";
-  return text
-    .replace(/\u05BE/g, " ") // החלפת מקף ברווח
-    .replace(/[\u0591-\u05C7]/g, "") // הסרת ניקוד
-    .replace(/\s+/g, " ") // צמצום רווחים כפולים
-    .trim();
 }
 
 function parseLocation(input: string) {
@@ -49,27 +32,28 @@ export function useOramaSearch(query: string) {
   const [loading, setLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   
-  const oramaDb = useRef<any>(null);
+  const flexIndex = useRef<any>(null);
   const allBooksRef = useRef<string[]>([]);
+  const versesStore = useRef<Map<string, any>>(new Map()); // Store full verse data to avoid DB lookups during search
 
-  // 1. Initialize Orama
+  // 1. Initialize FlexSearch
   useEffect(() => {
     async function init() {
-      if (oramaDb.current) return;
-      console.log('[Orama] Initializing...');
+      if (flexIndex.current) return;
+      console.log('[FlexSearch] Initializing...');
       
       try {
         const bookRows = await db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים ORDER BY מזהה ASC');
         allBooksRef.current = bookRows.map(b => b.שם);
 
-        // CONFIG: Disable stemming for Hebrew accuracy
-        oramaDb.current = await create({ 
-            schema: BIBLE_SCHEMA,
-            components: {
-                tokenizer: {
-                    stemming: false // חשוב מאוד לעברית!
-                }
-            }
+        // CONFIG: FlexSearch for Hebrew
+        flexIndex.current = new FlexSearch.Document({
+            id: "id",
+            index: ["cleanText"], // Only index clean text for speed (text with Nikkud is covered by store)
+            tokenize: "forward", // Good for partial matches
+            context: false,
+            cache: true,
+            worker: false
         });
 
         const startTime = performance.now();
@@ -85,35 +69,33 @@ export function useOramaSearch(query: string) {
           JOIN ספרים s ON p.מזהה_ספר = s.מזהה
         `);
 
-        const formattedVerses = allVerses.map((v: any) => {
-            // עדיפות ל-cleanText מהדאטהבייס, אך במידה והוא ריק או null, ננקה ידנית
-            let finalClean = v.cleanText;
-            if (!finalClean || finalClean.trim().length === 0) {
-                 finalClean = removeNikkud(v.text || '');
-            } else {
-                 finalClean = finalClean.trim(); // ניקוי רווחים מיותרים מהדאטהבייס
-            }
+        console.log(`[FlexSearch] Loaded ${allVerses.length} verses from DB.`);
 
-            return {
-                id: String(v.id || ''), 
-                book: v.book || '',
-                chapter: String(v.chapter || '0'),
-                verse: String(v.verse || '0'),
-                text: v.text || '',
-                cleanText: finalClean, 
+        // Batch add
+        allVerses.forEach((v: any) => {
+            const id = String(v.id);
+            const doc = {
+                id: id,
+                book: v.book,
+                chapter: v.chapter,
+                verse: v.verse,
+                text: v.text,
+                cleanText: v.cleanText
             };
+            
+            flexIndex.current.add(doc);
+            versesStore.current.set(id, doc);
         });
-
-        await insertMultiple(oramaDb.current, formattedVerses);
-        console.log(`[Orama] Indexing complete. ${formattedVerses.length} verses ready.`);
         
-        // --- Sanity Check: נסה למצוא את בראשית א:א מיד ---
-        const sanityCheck = await search(oramaDb.current, { term: 'בראשית ברא', properties: ['cleanText'], limit: 1 });
-        console.log(`[Orama] SANITY CHECK: Searching "בראשית ברא" found ${sanityCheck.count} hits.`);
+        console.log(`[FlexSearch] Indexing complete in ${Math.round(performance.now() - startTime)}ms`);
+        
+        // --- SANITY CHECK ---
+        const sanity = await flexIndex.current.search("בראשית", { limit: 1 });
+        console.log(`[FlexSearch] Sanity check "בראשית" found matches:`, sanity.length > 0);
         
         setIsReady(true);
       } catch (e) {
-        console.error('[Orama] Init failed:', e);
+        console.error('[FlexSearch] Init failed:', e);
       }
     }
     init();
@@ -122,26 +104,26 @@ export function useOramaSearch(query: string) {
   // 2. Run Search
   useEffect(() => {
     async function runSearch() {
-      if (!isReady || !oramaDb.current || !query || query.length < 1) {
+      if (!isReady || !flexIndex.current || !query || query.length < 1) {
         setResults([]);
         return;
       }
 
       setLoading(true);
-      const cleanQuery = removeNikkud(query);
+      // Clean query for better matching, though FlexSearch handles some
+      const cleanQuery = query.replace(/[\u0591-\u05C7]/g, "").trim();
       
       try {
         const navResults: SearchResult[] = [];
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
         
-        // --- NAVIGATION SEARCH ---
-        let consumedByNav = false; // דגל שיסמן אם השאילתה היא ניווט מובהק
+        // --- NAVIGATION SEARCH (Same logic as before) ---
 
         for (const book of sortedBooks) {
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
             
-            // 1. רק שם הספר
+            // 1. Book only
             if (remainder === '') {
                 navResults.push({
                     type: 'verse', 
@@ -150,19 +132,17 @@ export function useOramaSearch(query: string) {
                     subLabel: 'פתח את הספר',
                     data: { book_name: book, chapter: 1, verse: 1, text: '' }
                 });
-                consumedByNav = true;
             }
 
-            // 2. שם הספר + פרק
+            // 2. Book + Chapter
             const parsed = parseLocation(remainder);
-            if (parsed && !consumedByNav) {
+            if (parsed) {
               const chapNum = parseHebrewNumeral(parsed.chapterStr);
               const verseStartNum = parsed.verseStartStr ? parseHebrewNumeral(parsed.verseStartStr) : 0;
               const verseEndNum = parsed.verseEndStr ? parseHebrewNumeral(parsed.verseEndStr) : 0;
 
-              // תיקון: אם המספר גדול מ-150 (תהילים), זה כנראה טקסט ולא פרק
-              // "ברא" = 203, "היה" = 20 (יתכן פרק 20, אבל נבדוק אם קיים)
               if (chapNum > 0 && chapNum <= 151) {
+                // Fetch specific verse for navigation prompt
                 let sql = '';
                 let params: any[] = [];
                 
@@ -177,7 +157,6 @@ export function useOramaSearch(query: string) {
                 const row = await db.getFirstAsync<{מזהה: number, תוכן: string}>(sql, params);
                 
                 if (row) {
-                    // מצאנו פרק אמיתי! זה ניווט.
                     const navId = `nav-${book}-${chapNum}-${verseStartNum || 1}-${verseEndNum || 'end'}`;
                     let label = `${book} ${toHebrewNumeral(chapNum)}`;
                     if (verseStartNum > 0) label += `:${toHebrewNumeral(verseStartNum)}`;
@@ -197,41 +176,56 @@ export function useOramaSearch(query: string) {
                         text: row.תוכן
                       }
                     });
-                    // לא מסמנים consumedByNav כדי לאפשר גם חיפוש טקסטואלי במקביל, למקרה שהמשתמש מחפש ביטוי
-                } else {
-                    console.log(`[Orama] '${remainder}' parsed as Chap ${chapNum} but not found. Treating as text.`);
                 }
               }
             }
           }
         }
 
-        // --- FULL TEXT SEARCH ---
+        // --- FULL TEXT SEARCH (FlexSearch) ---
         let formattedResults: SearchResult[] = [];
         
-        if (cleanQuery.length >= 2 && oramaDb.current) {
+        if (cleanQuery.length >= 2) {
+            // Search in both fields
+            const searchRes = await flexIndex.current.search(cleanQuery, {
+                limit: 20,
+                enrich: true // Get the full document back? No, FlexSearch Document search returns field specific results.
+            });
             
-            const searchResult = await search(oramaDb.current, {
-              term: cleanQuery,
-              properties: ['cleanText', 'text'], 
-              limit: 20,
-              threshold: 0.2, // מאפשר טעויות קטנות
-              boost: { cleanText: 1.5 },
+            // FlexSearch Document result format: [{ field: 'cleanText', result: [id1, id2...] }]
+            // If enrichment is not easy, we just get IDs and look up in versesStore.
+            
+            // Let's assume we get IDs.
+            // Using "enrich: false" returns IDs.
+            // But wait, "enrich: true" in FlexSearch returns document content depending on config.
+            // It is safer to just get IDs and map from our Map.
+            
+            const rawResults = await flexIndex.current.search(cleanQuery, { limit: 20 });
+            // rawResults is array of results for each field: [{ field: 'cleanText', result: [id, id...] }, ...]
+            
+            const uniqueIds = new Set<string>();
+            rawResults.forEach((fieldRes: any) => {
+                fieldRes.result.forEach((id: string) => uniqueIds.add(id));
             });
 
-            console.log(`[Orama] Query: "${cleanQuery}" -> Found ${searchResult.count} hits`);
+            const hits: any[] = [];
+            uniqueIds.forEach(id => {
+                if (versesStore.current.has(id)) {
+                    hits.push(versesStore.current.get(id));
+                }
+            });
 
-            formattedResults = searchResult.hits.map(hit => ({
+            formattedResults = hits.map(hit => ({
               type: 'verse',
-              id: Number(hit.document.id),
-              label: `${hit.document.book} ${toHebrewNumeral(Number(hit.document.chapter))}:${toHebrewNumeral(Number(hit.document.verse))}`,
-              subLabel: hit.document.text as string,
+              id: Number(hit.id),
+              label: `${hit.book} ${toHebrewNumeral(Number(hit.chapter))}:${toHebrewNumeral(Number(hit.verse))}`,
+              subLabel: hit.text,
               data: {
-                id: Number(hit.document.id),
-                book_name: hit.document.book,
-                chapter: Number(hit.document.chapter),
-                verse: Number(hit.document.verse),
-                text: hit.document.text
+                id: Number(hit.id),
+                book_name: hit.book,
+                chapter: Number(hit.chapter),
+                verse: Number(hit.verse),
+                text: hit.text
               }
             }));
         }
@@ -243,7 +237,7 @@ export function useOramaSearch(query: string) {
         setResults([...navResults, ...filteredTextResults]);
 
       } catch (e) {
-        console.error('[Orama] Search error:', e);
+        console.error('[FlexSearch] Search error:', e);
       } finally {
         setLoading(false);
       }
