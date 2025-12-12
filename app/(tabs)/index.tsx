@@ -1,5 +1,5 @@
 import { AnimatedSearch } from '@/components/AnimatedSearch';
-import { EmptyCard } from '@/components/EmptyCard';
+import { GlassCard } from '@/components/GlassCard';
 import { PageTransition } from '@/components/PageTransition';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
@@ -10,7 +10,7 @@ import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, View, useColorScheme } from 'react-native';
+import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -47,7 +47,12 @@ export default function HomeScreen() {
     }
   };
 
-  const data = new Array(10).fill(0); // 10 empty cards
+  const listItems = [
+    { id: 'verse', type: 'verse' },
+    { id: 'study', title: 'לימוד יומי', content: 'בקרוב' },
+    { id: 'reading', title: 'קריאה יומית', content: 'בקרוב' },
+    { id: 'prayers', title: 'תפילות', content: 'בקרוב' },
+  ];
 
   return (
     <LinearGradient
@@ -58,15 +63,23 @@ export default function HomeScreen() {
         <SafeAreaView className="flex-1" edges={['top']}>
           <View className="flex-1 w-full max-w-[600px] self-center">
             <FlashList
-              data={data}
-              renderItem={() => <EmptyCard />}
-              estimatedItemSize={100}
-              ListHeaderComponent={() => (
-                <View className="mb-2.5">
-                  <VerseOfTheDay />
-                </View>
-              )}
-              contentContainerStyle={{ paddingBottom: 20 }}
+              data={listItems}
+              renderItem={({ item }) => {
+                if (item.type === 'verse') {
+                  return <VerseOfTheDay />;
+                }
+                return (
+                  <GlassCard title={item.title}>
+                     <View className="h-24 justify-center items-center">
+                        <Text className="opacity-50 italic text-gray-500 dark:text-gray-400">
+                          {item.content}
+                        </Text>
+                     </View>
+                  </GlassCard>
+                );
+              }}
+              estimatedItemSize={200}
+              contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
               showsVerticalScrollIndicator={false}
             />
           </View>
