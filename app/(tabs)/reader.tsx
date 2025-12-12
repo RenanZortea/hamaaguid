@@ -40,11 +40,65 @@ export default function ReaderScreen() {
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
 
   // Use the scroll hook
-  const { scrollViewRef, handleHeaderLayout, checkScrollToVerse } = useScrollToVerse(
+  const { scrollViewRef, handleHeaderLayout, setVersePositions } = useScrollToVerse(
     params,
     verses,
     loading
   );
+
+  // --- NEW LOGIC START ---
+  const handleTextLayout = (e: any) => {
+    const lines = e.nativeEvent.lines;
+    const positions: { [key: number]: number } = {};
+    
+    // 1. Construct the "Virtual" text map to find start indices of each verse
+    // We must replicate exactly how the text is rendered in the JSX below.
+    // Structure: " {hebrewNum} {verseText}"
+    
+    let currentIndex = 0;
+    const verseIndices: { id: number; startIndex: number }[] = [];
+
+    verses.forEach((verse) => {
+      // Logic must match the JSX rendering:
+      // <Text> {num} </Text><Text>{content}</Text>
+      // The spaces around {num} depend on your JSX format. 
+      // Based on your code: " " + num + " " + text
+      const numString = ` ${toHebrewNumeral(verse.verse)} `; 
+      const contentString = verse.text;
+      
+      verseIndices.push({ 
+        id: verse.id, 
+        startIndex: currentIndex 
+      });
+
+      // Advance index
+      currentIndex += numString.length + contentString.length;
+    });
+
+    // 2. Map Verses to Lines
+    // We iterate through lines and check which verse falls inside them.
+    let currentLineStartIndex = 0;
+    
+    lines.forEach((line: any) => {
+      const lineEndIndex = currentLineStartIndex + line.text.length;
+
+      // Find verses that START on this line
+      const versesOnLine = verseIndices.filter(v => 
+        v.startIndex >= currentLineStartIndex && v.startIndex < lineEndIndex
+      );
+
+      versesOnLine.forEach(v => {
+        // Store the Y position of this line
+        positions[v.id] = line.y;
+      });
+
+      currentLineStartIndex += line.text.length;
+    });
+
+    // 3. Update the hook with calculated positions
+    setVersePositions(positions);
+  };
+  // --- NEW LOGIC END ---
 
   // 1. Setup Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,7 +281,10 @@ export default function ReaderScreen() {
               {currentBook} {toHebrewNumeral(currentChapter)}
             </ThemedText>
           </View>
-              <Text style={[styles.chapterText, { color: Colors[theme].text }]}>
+          <Text 
+                style={[styles.chapterText, { color: Colors[theme].text }]}
+                onTextLayout={handleTextLayout}
+              >
                 {verses.map((verse) => {
                   const isSelected = selectedVerseIds.includes(verse.id);
                   return (
@@ -246,7 +303,6 @@ export default function ReaderScreen() {
                               : [...prev, verse.id]
                           );
                         }}
-                        onLayout={(e) => checkScrollToVerse(verse.id, e.nativeEvent.layout.y)}
                         suppressHighlighting={false}
                       >
                         {verse.text}
