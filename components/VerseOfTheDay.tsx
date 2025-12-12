@@ -15,11 +15,18 @@ interface VerseOfTheDayProps {
 export function VerseOfTheDay({ data, loading }: VerseOfTheDayProps) {
   if (loading) {
     return (
-      <GlassCard title="פסוק היום">
-        <View className="gap-3 items-center">
-          <Skeleton height={32} width="90%" />
-          <Skeleton height={32} width="70%" />
-          <View className="w-full flex-row justify-end mt-2">
+      <GlassCard className="min-h-[220px]">
+        <View className="flex-1 justify-between p-2">
+          <View className="flex-row mb-4 opacity-70">
+             <Text className="text-sm uppercase tracking-wider text-gray-600 dark:text-gray-400 font-medium">
+               פסוק היום
+             </Text>
+          </View>
+          <View className="items-center justify-center flex-1 gap-3">
+             <Skeleton height={32} width="90%" />
+             <Skeleton height={32} width="70%" />
+          </View>
+          <View className="w-full flex-row mt-4">
             <Skeleton height={20} width="30%" />
           </View>
         </View>
@@ -32,15 +39,24 @@ export function VerseOfTheDay({ data, loading }: VerseOfTheDayProps) {
   const verseReference = data?.verseReference || "בראשית א:א";
 
   return (
-    <GlassCard title="פסוק היום">
-      <View className="gap-3">
-        <Text 
-          className="text-2xl font-bold text-center leading-8 text-gray-900 dark:text-white"
-          style={{ writingDirection: 'rtl' }}
-        >
-          {verseText}
-        </Text>
-        <Text className="text-sm text-right mt-2 opacity-60 font-semibold text-gray-600 dark:text-gray-400">
+    <GlassCard className="min-h-[220px]">
+      <View className="flex-1 justify-between p-2">
+        <View className="flex-row mb-2 opacity-70">
+           <Text className="text-sm uppercase tracking-wider text-gray-600 dark:text-gray-400 font-medium">
+             פסוק היום
+           </Text>
+        </View>
+
+        <View className="flex-1 justify-center my-2">
+          <Text 
+            className="text-2xl font-bold text-center leading-9 text-gray-900 dark:text-white"
+            style={{ writingDirection: 'rtl' }}
+          >
+            {verseText}
+          </Text>
+        </View>
+
+        <Text className="text-sm mt-2 opacity-60 font-semibold text-gray-600 dark:text-gray-400">
           {verseReference}
         </Text>
       </View>
