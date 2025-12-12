@@ -2,7 +2,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { ChevronLeft, Clock, Heart, LogIn, LogOut, LucideIcon, Users } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { ChevronLeft, Clock, Heart, LogIn, LogOut, LucideIcon, Settings, Users } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,7 +63,7 @@ export default function ProfileScreen() {
     // Configure Google Sign-In
     GoogleSignin.configure({
       // Get this from Google Cloud Console > Credentials > OAuth 2.0 Client IDs > Web client
-      webClientId: 'YOUR_WEB_CLIENT_ID_GOES_HERE', 
+      webClientId: process.env.EXPO_PUBLIC_CLIENT_ID, 
     });
 
     // Listen for user state changes
@@ -96,7 +97,8 @@ export default function ProfileScreen() {
     } catch (error: any) {
       if (error.code !== 'SIGN_IN_CANCELLED') {
         console.error(error);
-        Alert.alert('שגיאה בהתחברות', error.message);
+        console.log("GOOGLE SIGN IN ERROR DETAILS:", JSON.stringify(error, null, 2));
+        Alert.alert('שגיאה בהתחברות', error.message + '\n' + error.code);
       }
     }
   };
@@ -154,6 +156,8 @@ export default function ProfileScreen() {
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
               
               <MenuItem icon={Clock} label="אחרונים" onPress={() => {}} />
+              <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+              <MenuItem icon={Settings} label="הגדרות" onPress={() => router.push('/settings')} />
               
               {/* Dynamic Logout Button (Inside Menu) */}
               {user && (

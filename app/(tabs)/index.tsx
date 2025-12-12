@@ -67,6 +67,7 @@ export default function HomeScreen() {
                 </View>
               )}
               contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={false}
             />
           </View>
           
