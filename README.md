@@ -1,50 +1,95 @@
-# Welcome to your Expo app 👋
+# Hamaaguid / המגיד
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Hamaaguid** is a modern, open-source mobile application for reading and studying the Tanakh (Hebrew Bible). Built with React Native and Expo, it provides a seamless experience for daily study, prayer, and in-depth search.
 
-## Get started
+**המגיד** היא אפליקציה מודרנית בקוד פתוח לקריאה ולימוד התנ"ך. האפליקציה נבנתה באמצעות React Native ו-Expo ומספקת חוויה נוחה ללימוד יומי, תפילה וחיפוש מעמיק במקורות.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🇺🇸 English
 
-2. Start the app
+### Features
 
-   ```bash
-   npx expo start
-   ```
+- 📖 **Tanakh Reader:** Complete Hebrew text with clear typography.
+- 🔍 **Advanced Search:** Fast, offline-capable search powered by Orama.
+- 📅 **Daily Content:** Verse of the Day, Daily Study, and Daily Reading plans.
+- 🙏 **Prayers (Siddur):** Easy access to daily prayers (Coming Soon).
+- 🔖 **Favorites:** Save and organize your favorite verses.
+- 🌗 **Dark Mode:** Automatic theme switching based on system settings.
+- ⚡ **Performance:** Powered by SQLite for fast data access and FlashList for smooth scrolling.
 
-In the output, you'll find options to open the app in a
+### Tech Stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- **Framework:** React Native (Expo SDK 52)
+- **Database:** Expo SQLite, Firebase Firestore
+- **Search:** Orama (offline full-text search)
+- **Styling:** NativeWind (Tailwind CSS)
+- **Navigation:** Expo Router
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Getting Started
 
-## Get a fresh project
+1.  **Install dependencies:**
 
-When you're ready, run:
+    ```bash
+    npm install
+    ```
 
-```bash
-npm run reset-project
-```
+2.  **Start the app:**
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+    ```bash
+    npx expo start
+    ```
 
-## Learn more
+3.  **Run on device/emulator:**
+    - Press `a` for Android Emulator.
+    - Press `i` for iOS Simulator.
+    - Scan the QR code with the **Expo Go** app on your physical device.
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🇮🇱 עברית
 
-## Join the community
+### תכונות עיקריות
 
-Join our community of developers creating universal apps.
+- 📖 **קריאה בתנ"ך:** טקסט מלא עם גופנים קריאים ונעימים לעין.
+- 🔍 **חיפוש מתקדם:** חיפוש מהיר (גם ללא חיבור לרשת) המבוסס על מנוע Orama.
+- 📅 **לימוד יומי:** פסוק יומי, לימוד יומי ופרק יומי.
+- 🙏 **סידור תפילה:** גישה מהירה לתפילות היומיום (בקרוב).
+- 🔖 **מועדפים:** שמירה וארגון של פסוקים נבחרים.
+- 🌗 **מצב לילה:** תמיכה מלאה במצב כהה (Dark Mode).
+- ⚡ **ביצועים:** שימוש ב-SQLite לגישה מהירה לנתונים ו-FlashList לגלילה חלקה.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### טכנולוגיות
+
+- **פיתוח:** React Native (Expo SDK 52)
+- **מסד נתונים:** Expo SQLite, Firebase Firestore
+- **חיפוש:** Orama
+- **עיצוב:** NativeWind (Tailwind CSS)
+- **ניווט:** Expo Router
+
+### תחילת העבודה
+
+1.  **התקנת ספריות:**
+
+    ```bash
+    npm install
+    ```
+
+2.  **הפעלת האפליקציה:**
+
+    ```bash
+    npx expo start
+    ```
+
+3.  **הרצה על מכשיר/אימולטור:**
+    - לחצו `a` להפעלת אימולטור Android.
+    - לחצו `i` להפעלת סימולטור iOS.
+    - סרקו את קוד ה-QR באמצעות אפליקציית **Expo Go** במכשיר האמיתי שלכם.
+
+---
+
+## License / רישיון
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+פרויקט זה מופץ תחת רישיון Apache 2.0 - ראו את קובץ ה-[LICENSE](LICENSE) לפרטים נוספים.
