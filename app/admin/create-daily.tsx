@@ -20,6 +20,7 @@ export default function AdminCreateDailyScreen() {
 
   // Study State
   const [devotionalTitle, setDevotionalTitle] = useState('');
+  const [devotionalDescription, setDevotionalDescription] = useState('');
   const [devotionalContent, setDevotionalContent] = useState('');
 
   // Fetch existing data when date changes
@@ -33,11 +34,13 @@ export default function AdminCreateDailyScreen() {
           const data = docSnap.data();
           setVerseReference(data.verseReference || '');
           setDevotionalTitle(data.devotionalTitle || '');
+          setDevotionalDescription(data.devotionalDescription || '');
           setDevotionalContent(data.devotionalContent || '');
         } else {
           // Reset fields if new date
           setVerseReference('');
           setDevotionalTitle('');
+          setDevotionalDescription('');
           setDevotionalContent('');
         }
       } catch (err) {
@@ -61,6 +64,7 @@ export default function AdminCreateDailyScreen() {
         type: 'daily_combined',
         verseReference,
         devotionalTitle: devotionalTitle || 'לימוד יומי',
+        devotionalDescription,
         devotionalContent,
         updatedAt: new Date().toISOString(),
       }, { merge: true }); // Merge to avoid overwriting unrelated fields if any
@@ -151,6 +155,18 @@ export default function AdminCreateDailyScreen() {
                             onChangeText={setDevotionalTitle} 
                             style={getInputStyle()} 
                             placeholder="לימוד יומי"
+                            placeholderTextColor="#888"
+                            textAlign="right"
+                        />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                        <Text style={[styles.label, { color: Colors[theme].text }]}>תיאור קצר (יופיע בכרטיסייה)</Text>
+                        <TextInput 
+                            value={devotionalDescription} 
+                            onChangeText={setDevotionalDescription} 
+                            style={getInputStyle()} 
+                            placeholder="תיאור קצר של הלימוד..."
                             placeholderTextColor="#888"
                             textAlign="right"
                         />

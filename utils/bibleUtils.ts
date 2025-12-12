@@ -24,27 +24,28 @@ export async function fetchVerseFromReference(db: SQLiteDatabase, reference: str
     // 2. Find Book
     let bookName = '';
     let remainder = '';
+    let found = false;
+    let parts: RegExpMatchArray | null = null;
     
     for (const book of sortedBooks) {
       if (cleanRef.startsWith(book)) {
-        bookName = book;
-        remainder = cleanRef.slice(book.length).trim();
-        break;
+        const potentialRemainder = cleanRef.slice(book.length).trim();
+        // Try parsing immediately to see if this is the correct book match
+        const potentialParts = potentialRemainder.match(/^([א-ת"']+)(?:[\s:]+([א-ת"']+)(?:[\s\-]+([א-ת"']+))?)?$/);
+
+        if (potentialParts) {
+            bookName = book;
+            remainder = potentialRemainder;
+            parts = potentialParts;
+            found = true;
+            break;
+        }
+        // If parsing failed, it means we matched a book name that consumed the chapter (e.g. matched "John 3" instead of "John" for "John 3:16")
+        // So we continue to the next (shorter) book name.
       }
     }
     
-    if (!bookName) return null; // Invalid reference
-
-    // 3. Parse Chapter/Verse
-    // Matches: "Chapter:Verse" or "Chapter Verse" or "Chapter:Verse-Verse"
-    // Regex explanation:
-    // ^([א-ת"']+) : Chapter (Hebrew letters/quotes)
-    // (?:[\s:]+ : Separator (space or colon)
-    // ([א-ת"']+) : Start Verse
-    // (?:[\s\-]+([א-ת"']+))?)$ : Optional End Verse
-    const parts = remainder.match(/^([א-ת"']+)(?:[\s:]+([א-ת"']+)(?:[\s\-]+([א-ת"']+))?)?$/);
-    
-    if (!parts) return null;
+    if (!found || !parts) return null; // Invalid reference
 
     const chapterNum = parseHebrewNumeral(parts[1]);
     const verseStartNum = parts[2] ? parseHebrewNumeral(parts[2]) : 1;
