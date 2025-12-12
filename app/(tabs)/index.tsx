@@ -3,13 +3,15 @@ import { GlassCard } from '@/components/GlassCard';
 import { PageTransition } from '@/components/PageTransition';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
-import { db } from '@/config/firebaseConfig';
+import { db as firestoreDb } from '@/config/firebaseConfig';
 // CHANGE 1: Import SearchResult from useOramaSearch (or keep shared interface)
 // CHANGE 2: Import useOramaSearch instead of useUnifiedSearch
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
+import { fetchVerseFromReference } from '@/utils/bibleUtils';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
@@ -18,16 +20,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const currentTheme = useColorScheme();
   const router = useRouter();
+  const db = useSQLiteContext();
 
   // 1. Setup Search State
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   // CHANGE 3: Use the Orama hook which now supports loadMore
-  const { results: searchResults, loading: searchLoading, loadMore } = useOramaSearch(searchQuery);
+  const { results: searchResults, loading: searchLoading } = useOramaSearch(searchQuery);
 
   // Daily Verse State
-  const [dailyVerse, setDailyVerse] = useState(null);
+  const [dailyVerse, setDailyVerse] = useState<any>(null);
 
   useEffect(() => {
     const fetchDailyContent = async () => {
@@ -35,11 +38,22 @@ export default function HomeScreen() {
       const today = new Date().toISOString().split('T')[0]; 
       
       try {
-        const docRef = doc(db, 'daily_content', today);
+        const docRef = doc(firestoreDb, 'daily_content', today);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          setDailyVerse(docSnap.data() as any);
+          const data = docSnap.data() as any;
+          
+          // If we have a reference but no text (or even if we have text, we might want to refresh it from local DB)
+          // The admin now only saves 'verseReference'.
+          if (data.verseReference) {
+             const fetchedData = await fetchVerseFromReference(db, data.verseReference);
+             if (fetchedData) {
+                 data.verseText = fetchedData.text; // Inject the text
+             }
+          }
+
+          setDailyVerse(data);
         } else {
           // Optional: Fallback to a default verse if admin hasn't posted yet
         }
@@ -49,7 +63,7 @@ export default function HomeScreen() {
     };
 
     fetchDailyContent();
-  }, []);
+  }, [db]);
 
   // 2. Handle Navigation when an item is selected
   const handleSearchSelect = (item: SearchResult) => {
@@ -152,7 +166,6 @@ export default function HomeScreen() {
         loading={searchLoading}
         onSearchChange={setSearchQuery}
         onSelect={handleSearchSelect}
-        onLoadMore={loadMore}
       />
     </LinearGradient>
   );

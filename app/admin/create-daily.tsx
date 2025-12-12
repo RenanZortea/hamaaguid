@@ -17,7 +17,6 @@ export default function AdminCreateDailyScreen() {
 
   // Verse State
   const [verseReference, setVerseReference] = useState('');
-  const [verseText, setVerseText] = useState('');
 
   // Study State
   const [devotionalTitle, setDevotionalTitle] = useState('');
@@ -33,13 +32,11 @@ export default function AdminCreateDailyScreen() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setVerseReference(data.verseReference || '');
-          setVerseText(data.verseText || '');
           setDevotionalTitle(data.devotionalTitle || '');
           setDevotionalContent(data.devotionalContent || '');
         } else {
           // Reset fields if new date
           setVerseReference('');
-          setVerseText('');
           setDevotionalTitle('');
           setDevotionalContent('');
         }
@@ -63,7 +60,6 @@ export default function AdminCreateDailyScreen() {
       await setDoc(doc(db, 'daily_content', date), {
         type: 'daily_combined',
         verseReference,
-        verseText,
         devotionalTitle: devotionalTitle || 'לימוד יומי',
         devotionalContent,
         updatedAt: new Date().toISOString(),
@@ -141,19 +137,6 @@ export default function AdminCreateDailyScreen() {
                             onChangeText={setVerseReference} 
                             style={getInputStyle()} 
                             placeholder="בראשית א:א"
-                            placeholderTextColor="#888"
-                            textAlign="right"
-                        />
-                        </View>
-
-                        <View style={styles.formGroup}>
-                        <Text style={[styles.label, { color: Colors[theme].text }]}>טקסט הפסוק</Text>
-                        <TextInput 
-                            value={verseText} 
-                            onChangeText={setVerseText} 
-                            style={[getInputStyle(), styles.multiline]} 
-                            multiline 
-                            placeholder="בְּרֵאשִׁ֖ית בָּרָ֣א..."
                             placeholderTextColor="#888"
                             textAlign="right"
                         />
