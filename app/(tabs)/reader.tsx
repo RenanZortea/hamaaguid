@@ -5,8 +5,8 @@ import { VerseActionMenu } from '@/components/VerseActionMenu';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useBibleContext } from '@/contexts/BibleContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBibleChapter } from '@/hooks/useBible';
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { useScrollToVerse } from '@/hooks/useScrollToVerse';
 import { toHebrewNumeral } from '@/utils/hebrewNumerals';
@@ -26,9 +26,16 @@ export default function ReaderScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const [currentBook, setCurrentBook] = useState('בראשית');
-  const [currentChapter, setCurrentChapter] = useState(1);
-  const { verses, loading } = useBibleChapter(currentBook, currentChapter);
+  // Use Global Context
+  const { 
+    book: currentBook, 
+    chapter: currentChapter, 
+    verses, 
+    loading, 
+    setBook, 
+    setChapter 
+  } = useBibleContext();
+
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
 
   // Use the scroll hook
@@ -46,11 +53,11 @@ export default function ReaderScreen() {
   // Handle Navigation Params (from Search)
   useEffect(() => {
     if (params.book) {
-      setCurrentBook(Array.isArray(params.book) ? params.book[0] : params.book);
+      setBook(Array.isArray(params.book) ? params.book[0] : params.book);
       if (params.chapter) {
-        setCurrentChapter(Number(params.chapter));
+        setChapter(Number(params.chapter));
       } else {
-        setCurrentChapter(1);
+        setChapter(1);
       }
       
       // Handle Verse Selection / Range
@@ -88,7 +95,7 @@ export default function ReaderScreen() {
         setSelectedVerseIds([]); 
       }
     }
-  }, [params.book, params.chapter, params.highlightVerse, params.endVerse, verses, loading]);
+  }, [params.book, params.chapter, params.highlightVerse, params.endVerse, verses, loading, setBook, setChapter]);
 
   // Search State
   const [searchVisible, setSearchVisible] = useState(false);
