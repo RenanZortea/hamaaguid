@@ -3,13 +3,15 @@ import { GlassCard } from '@/components/GlassCard';
 import { PageTransition } from '@/components/PageTransition';
 import { SearchBar } from '@/components/SearchBar';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
+import { db } from '@/config/firebaseConfig';
 // CHANGE 1: Import SearchResult from useOramaSearch (or keep shared interface)
 // CHANGE 2: Import useOramaSearch instead of useUnifiedSearch
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,6 +25,31 @@ export default function HomeScreen() {
   
   // CHANGE 3: Use the Orama hook which now supports loadMore
   const { results: searchResults, loading: searchLoading, loadMore } = useOramaSearch(searchQuery);
+
+  // Daily Verse State
+  const [dailyVerse, setDailyVerse] = useState(null);
+
+  useEffect(() => {
+    const fetchDailyContent = async () => {
+      // Format today's date to match your ID format, e.g., "2023-10-27"
+      const today = new Date().toISOString().split('T')[0]; 
+      
+      try {
+        const docRef = doc(db, 'daily_content', today);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setDailyVerse(docSnap.data() as any);
+        } else {
+          // Optional: Fallback to a default verse if admin hasn't posted yet
+        }
+      } catch (error) {
+        console.error("Error fetching daily verse:", error);
+      }
+    };
+
+    fetchDailyContent();
+  }, []);
 
   // 2. Handle Navigation when an item is selected
   const handleSearchSelect = (item: SearchResult) => {
@@ -66,8 +93,26 @@ export default function HomeScreen() {
               data={listItems}
               renderItem={({ item }) => {
                 if (item.type === 'verse') {
-                  return <VerseOfTheDay />;
+                  return <VerseOfTheDay data={dailyVerse} />;
                 }
+                
+                // Special rendering for 'study' card to show fetched content
+                if (item.id === 'study') {
+                    const hasStudyContent = dailyVerse?.devotionalContent;
+                    return (
+                        <GlassCard title={dailyVerse?.devotionalTitle || item.title}>
+                            <View className="min-h-[96px] justify-center items-center p-2">
+                                <Text 
+                                    className={`text-gray-900 dark:text-white ${hasStudyContent ? 'text-right w-full text-base leading-6' : 'opacity-50 italic text-gray-500 dark:text-gray-400'}`}
+                                    numberOfLines={hasStudyContent ? 4 : undefined}
+                                >
+                                {hasStudyContent || item.content}
+                                </Text>
+                            </View>
+                        </GlassCard>
+                    );
+                }
+
                 return (
                   <GlassCard title={item.title}>
                      <View className="h-24 justify-center items-center">

@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { router } from 'expo-router';
-import { ChevronLeft, Clock, Heart, LogIn, LogOut, LucideIcon, Settings, Users } from 'lucide-react-native';
+import { ChevronLeft, Clock, Heart, Lock, LogIn, LogOut, LucideIcon, Settings, Users } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Firebase & Google Imports
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signOut, User } from 'firebase/auth';
-import { auth } from '../../config/firebaseConfig.ts';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../config/firebaseConfig';
 
 interface MenuItemProps {
   icon: LucideIcon;
@@ -56,6 +57,7 @@ function MenuItem({ icon: Icon, label, onPress, color }: MenuItemProps) {
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 1. Initialize Google Sign-In and Auth Listener
@@ -67,8 +69,24 @@ export default function ProfileScreen() {
     });
 
     // Listen for user state changes
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // Check if user is admin
+        try {
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists() && userDoc.data().isAdmin) {
+                setIsAdmin(true);
+            } else {
+                setIsAdmin(false);
+            }
+        } catch (error) {
+            console.error("Error checking admin status:", error);
+            setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
       setLoading(false);
     });
 
@@ -159,6 +177,14 @@ export default function ProfileScreen() {
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
               <MenuItem icon={Settings} label="הגדרות" onPress={() => router.push('/settings')} />
               
+              {/* Admin Button */}
+              {isAdmin && (
+                <>
+                  <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
+                  <MenuItem icon={Lock} label="ממשק מנהל" onPress={() => router.push('/admin/create-daily')} />
+                </>
+              )}
+
               {/* Dynamic Logout Button (Inside Menu) */}
               {user && (
                 <>
