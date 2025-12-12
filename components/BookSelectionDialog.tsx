@@ -1,8 +1,24 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Modal,
+  Platform,
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from 'react-native';
+import Animated, { LinearTransition, ZoomIn } from 'react-native-reanimated';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
 interface BibleBook {
   id: string;
@@ -22,126 +38,177 @@ interface BookSelectionDialogProps {
   data: BibleCategory[];
 }
 
+const ChapterItem = React.memo(({ 
+    chapter, 
+    onSelect, 
+    isDark, 
+    textColor 
+}: { 
+    chapter: number; 
+    onSelect: (chapter: number) => void; 
+    isDark: boolean; 
+    textColor: string; 
+}) => (
+    <TouchableOpacity
+        style={[
+            styles.chapterItem, 
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]}
+        onPress={() => onSelect(chapter)}
+    >
+        <Text style={[styles.chapterText, { color: textColor }]}>{chapter}</Text>
+    </TouchableOpacity>
+));
+
+const CollapsibleBook = React.memo(({
+  book,
+  onChapterSelect,
+  isDark,
+  textColor,
+  subtitleColor
+}: {
+  book: BibleBook;
+  onChapterSelect: (chapter: number) => void;
+  isDark: boolean;
+  textColor: string;
+  subtitleColor: string;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleExpand = () => {
+    setExpanded(!expanded);
+  };
+
+  const handleChapterSelect = useCallback((chapter: number) => {
+    onChapterSelect(chapter);
+  }, [onChapterSelect]);
+
+  const chapters = useMemo(() => Array.from({ length: book.chapters }, (_, i) => i + 1), [book.chapters]);
+
+  return (
+    <Animated.View 
+      layout={LinearTransition.duration(300)}
+      style={[
+        styles.bookContainer,
+        { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }
+      ]}
+    >
+      <TouchableOpacity
+        style={[
+            styles.bookListItem,
+            {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+            }
+        ]}
+        onPress={toggleExpand}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.bookListText, { color: textColor }]}>{book.label}</Text>
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={16}
+          color={subtitleColor}
+        />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.chapterGrid}>
+           {chapters.map((chapter) => (
+            <ChapterItem 
+                key={chapter} 
+                chapter={chapter} 
+                onSelect={handleChapterSelect} 
+                isDark={isDark} 
+                textColor={textColor} 
+            />
+          ))}
+        </View>
+      )}
+    </Animated.View>
+  );
+});
+
+interface SectionData extends BibleCategory {
+  data: BibleBook[];
+}
+
 export function BookSelectionDialog({ visible, onClose, onSelect, data }: BookSelectionDialogProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
-  
-  const [step, setStep] = useState<'book' | 'chapter'>('book');
-  const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
 
-  const handleBookSelect = (book: BibleBook) => {
-    setSelectedBook(book);
-    setStep('chapter');
-  };
-
-  const handleChapterSelect = (chapter: number) => {
-    if (selectedBook) {
-      onSelect(selectedBook.id, chapter);
-      handleClose();
-    }
-  };
-
-  const handleClose = () => {
+  const handleChapterSelect = useCallback((bookId: string, chapter: number) => {
+    onSelect(bookId, chapter);
     onClose();
-    // Reset state after a delay to avoid flicker during close animation
-    setTimeout(() => {
-      setStep('book');
-      setSelectedBook(null);
-    }, 300);
-  };
-
-  const handleBack = () => {
-    if (step === 'chapter') {
-      setStep('book');
-      setSelectedBook(null);
-    } else {
-      handleClose();
-    }
-  };
+  }, [onSelect, onClose]);
 
   const textColor = isDark ? '#FFFFFF' : '#000000';
   const subtitleColor = isDark ? '#AAAAAA' : '#666666';
+
+  const sections: SectionData[] = useMemo(() => data.map(category => ({
+    ...category,
+    data: category.books
+  })), [data]);
+
+  const renderSectionHeader = useCallback(({ section: { label } }: { section: SectionData }) => (
+    <View style={[styles.sectionHeader, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
+        <Text style={[styles.sectionTitle, { color: subtitleColor }]}>{label}</Text>
+    </View>
+  ), [isDark, subtitleColor]);
+
+  const renderItem = useCallback(({ item }: { item: BibleBook }) => (
+    <CollapsibleBook
+        book={item}
+        onChapterSelect={(chapter) => handleChapterSelect(item.id, chapter)}
+        isDark={isDark}
+        textColor={textColor}
+        subtitleColor={subtitleColor}
+    />
+  ), [handleChapterSelect, isDark, textColor, subtitleColor]);
+
+  const keyExtractor = useCallback((item: BibleBook) => item.id, []);
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={handleClose}
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-      <Animated.View 
+      <Animated.View
         entering={ZoomIn.duration(200)}
         style={[
-          styles.dialogContainer, 
+          styles.dialogContainer,
           { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }
         ]}
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-          <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
-           {step === 'chapter' ? (
-               <Ionicons name="arrow-back" size={24} color={textColor} />
-           ) : (
-               <Ionicons name="close" size={24} color={textColor} />
-           )}
+          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+            <Ionicons name="close" size={24} color={textColor} />
           </TouchableOpacity>
-          
+
           <Text style={[styles.title, { color: textColor }]}>
-            {step === 'book' ? 'בחר ספר' : selectedBook?.label}
+            בחר ספר
           </Text>
-          
-          <View style={styles.iconButton} /> 
+
+          <View style={styles.iconButton} />
         </View>
 
         {/* Content */}
-        <ScrollView 
+        <SectionList
+          sections={sections}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-        >
-          {step === 'book' ? (
-            // BOOK SELECTION LIST
-            <View>
-              {data.map((category) => (
-                <View key={category.id} style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: subtitleColor }]}>{category.label}</Text>
-                  <View style={styles.list}>
-                    {category.books.map((book) => (
-                      <TouchableOpacity 
-                        key={book.id} 
-                        style={[
-                            styles.bookListItem, 
-                            { 
-                                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
-                                borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                            }
-                        ]}
-                        onPress={() => handleBookSelect(book)}
-                      >
-                        <Text style={[styles.bookListText, { color: textColor }]}>{book.label}</Text>
-                        <Ionicons name="chevron-back" size={16} color={subtitleColor} />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            // CHAPTER SELECTION GRID
-            <View style={styles.chapterGrid}>
-              {selectedBook && Array.from({ length: selectedBook.chapters }, (_, i) => i + 1).map((chapter) => (
-                <TouchableOpacity
-                  key={chapter}
-                  style={[styles.chapterItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
-                  onPress={() => handleChapterSelect(chapter)}
-                >
-                  <Text style={[styles.chapterText, { color: textColor }]}>{chapter}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </ScrollView>
+          stickySectionHeadersEnabled={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+        />
       </Animated.View>
       </View>
     </Modal>
@@ -186,50 +253,53 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
-    padding: 20,
     paddingBottom: 40,
   },
-  section: {
-    marginBottom: 24,
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 12,
     textAlign: 'right', // Hebrew
   },
-  list: {
-    borderRadius: 12,
-    overflow: 'hidden',
+  bookContainer: {
+    borderBottomWidth: 1,
+    marginHorizontal: 0, 
+    overflow: 'hidden', // Add overflow hidden for smooth layout transition clips
   },
   bookListItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 20, 
   },
   bookListText: {
     fontSize: 17,
     fontWeight: '500',
-    textAlign: 'right', 
+    textAlign: 'right',
   },
   chapterGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: 12,
+    padding: 16,
+    paddingTop: 0,
+    paddingRight: 20, 
   },
   chapterItem: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48, // Squared
+    height: 48, // Squared
+    borderRadius: 12, // Rounded corners
     justifyContent: 'center',
     alignItems: 'center',
   },
   chapterText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

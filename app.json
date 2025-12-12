@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "hamaaguid",
-    "slug": "hamaaguid",
+    "slug": "pasukiah-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hamaaguid.hamaaguid"
+      "bundleIdentifier": "com.hamaaguid.hamaaguid",
+      "infoPlist": {
+        "ExpoLocalization_supportsRTL": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -64,6 +67,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/bb38be41-7b40-4076-ba2d-063840bf73d7"
-    }
+    },
+    "owner": "renanzortea"
   }
 }
