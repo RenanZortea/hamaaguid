@@ -1,8 +1,9 @@
 import { AnimatedSearch } from '@/components/AnimatedSearch';
-import { GlassCard } from '@/components/GlassCard';
+import { DailyReadingCard } from '@/components/DailyReadingCard';
+import { DailyStudyCard } from '@/components/DailyStudyCard';
 import { PageTransition } from '@/components/PageTransition';
+import { PrayersCard } from '@/components/PrayersCard';
 import { SearchBar } from '@/components/SearchBar';
-import { Skeleton } from '@/components/Skeleton';
 import { VerseOfTheDay } from '@/components/VerseOfTheDay';
 import { db as firestoreDb } from '@/config/firebaseConfig';
 // CHANGE 1: Import SearchResult from useOramaSearch (or keep shared interface)
@@ -15,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, Text, View, useColorScheme } from 'react-native';
+import { Pressable, RefreshControl, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -124,48 +125,19 @@ export default function HomeScreen() {
                   return <VerseOfTheDay data={dailyVerse} loading={isLoading} />;
                 }
                 
-                // Special rendering for 'study' card to show fetched content
                 if (item.id === 'study') {
-                    // Show skeleton if loading
-                    if (isLoading) {
-                        return (
-                           <GlassCard title={item.title}>
-                               <View className="min-h-[96px] justify-center items-center p-2 gap-2 w-full">
-                                   <Skeleton width="100%" height={20} />
-                                   <Skeleton width="90%" height={20} />
-                                   <Skeleton width="60%" height={20} style={{ alignSelf: 'flex-end' }} />
-                               </View>
-                           </GlassCard>
-                        );
-                    }
-
-                    // We now render:
-                    // Title: devotionalTitle
-                    // Content: devotionalDescription (instead of the full content)
-                    const hasDescription = dailyVerse?.devotionalDescription;
-                    return (
-                        <GlassCard title={dailyVerse?.devotionalTitle || item.title}>
-                            <View className="min-h-[96px] justify-center items-center p-2">
-                                <Text 
-                                    className={`text-gray-900 dark:text-white ${hasDescription ? 'text-right w-full text-base leading-6' : 'opacity-50 italic text-gray-500 dark:text-gray-400'}`}
-                                    numberOfLines={hasDescription ? 4 : undefined}
-                                >
-                                {hasDescription || item.content}
-                                </Text>
-                            </View>
-                        </GlassCard>
-                    );
+                    return <DailyStudyCard data={dailyVerse} loading={isLoading} />;
                 }
 
-                return (
-                  <GlassCard title={item.title}>
-                     <View className="h-24 justify-center items-center">
-                        <Text className="opacity-50 italic text-gray-500 dark:text-gray-400">
-                          {item.content}
-                        </Text>
-                     </View>
-                  </GlassCard>
-                );
+                if (item.id === 'reading') {
+                    return <DailyReadingCard loading={isLoading} />;
+                }
+
+                if (item.id === 'prayers') {
+                    return <PrayersCard loading={isLoading} />;
+                }
+                
+                return null;
               }}
               estimatedItemSize={200}
               contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
