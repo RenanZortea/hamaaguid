@@ -150,7 +150,7 @@ export default function ProfileScreen() {
             <ThemedText type="subtitle" style={styles.sectionTitle}>תפריט</ThemedText>
             
             <View style={[styles.menuList, { backgroundColor: colorScheme === 'dark' ? '#171717' : '#f5f5f5' }]}>
-              <MenuItem icon={Heart} label="מועדפים" onPress={() => {}} />
+              <MenuItem icon={Heart} label="מועדפים" onPress={() => router.push('/favorites')} />
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />
               <MenuItem icon={Users} label="חברים" onPress={() => {}} />
               <View style={[styles.separator, { backgroundColor: colorScheme === 'dark' ? '#333' : '#e0e0e0' }]} />

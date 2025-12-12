@@ -4,21 +4,20 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../config/firebaseConfig';
 
 export interface FavoriteVerse {
-  id: string; // Document ID (book_chapter_verseId)
+  id: string; // Document ID (book_chapter_verseNumbers)
   book: string;
   chapter: number;
-  verseIds: number[];
+  verseNumbers: number[]; // Store actual verse numbers (e.g., 1, 2) instead of DB IDs
   createdAt: number;
-  // Optional: Store text for offline / quick access
   previewText?: string;
 }
 
 interface FavoritesContextType {
   favorites: FavoriteVerse[];
   loading: boolean;
-  addToFavorites: (book: string, chapter: number, verseIds: number[], previewText?: string) => Promise<void>;
+  addToFavorites: (book: string, chapter: number, verseNumbers: number[], previewText?: string) => Promise<void>;
   removeFromFavorites: (id: string) => Promise<void>;
-  isFavorite: (book: string, chapter: number, verseIds: number[]) => boolean;
+  isFavorite: (book: string, chapter: number, verseNumbers: number[]) => boolean;
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
@@ -48,7 +47,17 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     const q = query(favoritesRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const favs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      const favs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Safety check for legacy data using verseIds
+        const verseNumbers = data.verseNumbers || data.verseIds || [];
+        
+        return { 
+          ...data, 
+          id: doc.id,
+          verseNumbers // Ensure this property always exists
+        };
+      });
       setFavorites(favs);
       setLoading(false);
     }, (error) => {
@@ -59,19 +68,18 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, [user]);
 
-  const addToFavorites = async (book: string, chapter: number, verseIds: number[], previewText?: string) => {
+  const addToFavorites = async (book: string, chapter: number, verseNumbers: number[], previewText?: string) => {
     if (!user) return;
 
-    // Create a unique ID for single verses or ranges
-    // Simple logic: sort IDs and join
-    const sortedIds = [...verseIds].sort((a, b) => a - b);
-    const docId = `${book}_${chapter}_${sortedIds.join('-')}`;
+    // Create a unique ID from verse numbers
+    const sortedNums = [...verseNumbers].sort((a, b) => a - b);
+    const docId = `${book}_${chapter}_${sortedNums.join('-')}`;
     
     const favorite: FavoriteVerse = {
         id: docId,
         book,
         chapter,
-        verseIds: sortedIds,
+        verseNumbers: sortedNums,
         createdAt: Date.now(),
         previewText
     };
@@ -94,9 +102,9 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isFavorite = (book: string, chapter: number, verseIds: number[]) => {
-      const sortedIds = [...verseIds].sort((a, b) => a - b);
-      const docId = `${book}_${chapter}_${sortedIds.join('-')}`;
+  const isFavorite = (book: string, chapter: number, verseNumbers: number[]) => {
+      const sortedNums = [...verseNumbers].sort((a, b) => a - b);
+      const docId = `${book}_${chapter}_${sortedNums.join('-')}`;
       return favorites.some(f => f.id === docId);
   };
 

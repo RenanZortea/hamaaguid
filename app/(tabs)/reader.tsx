@@ -150,11 +150,19 @@ export default function ReaderScreen() {
   // Favorites Logic
   const { isFavorite, addToFavorites, removeFromFavorites, favorites } = useFavorites();
   
+  // Helper to get verse numbers from selection
+  const selectedVerseNumbers = React.useMemo(() => {
+    return verses
+        .filter(v => selectedVerseIds.includes(v.id))
+        .map(v => v.verse)
+        .sort((a, b) => a - b);
+  }, [selectedVerseIds, verses]);
+
   // Check if current selection is already saved
   const isCurrentSelectionFavorite = React.useMemo(() => {
-    if (selectedVerseIds.length === 0) return false;
-    return isFavorite(currentBook, currentChapter, selectedVerseIds);
-  }, [selectedVerseIds, currentBook, currentChapter, favorites]);
+    if (selectedVerseNumbers.length === 0) return false;
+    return isFavorite(currentBook, currentChapter, selectedVerseNumbers);
+  }, [selectedVerseNumbers, currentBook, currentChapter, favorites, isFavorite]);
 
   const handleFavoriteVerse = async () => {
     if (selectedVerseIds.length === 0) return;
@@ -162,9 +170,8 @@ export default function ReaderScreen() {
     // Check if we are ADDING or REMOVING
     if (isCurrentSelectionFavorite) {
         // To remove, we need the doc ID. 
-        // We can reconstruct it or find it in favorites
-        const sortedIds = [...selectedVerseIds].sort((a, b) => a - b);
-        const docId = `${currentBook}_${currentChapter}_${sortedIds.join('-')}`;
+        // ID is constructed from book_chapter_verseNUMBERS
+        const docId = `${currentBook}_${currentChapter}_${selectedVerseNumbers.join('-')}`;
         
         await removeFromFavorites(docId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -174,10 +181,10 @@ export default function ReaderScreen() {
         const selectedVerses = verses
             .filter(v => selectedVerseIds.includes(v.id))
             .sort((a, b) => a.id - b.id);
-        
+            
         const previewText = selectedVerses.map(v => v.text).join(' ');
 
-        await addToFavorites(currentBook, currentChapter, selectedVerseIds, previewText);
+        await addToFavorites(currentBook, currentChapter, selectedVerseNumbers, previewText);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     
