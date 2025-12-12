@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useBibleContext } from '@/contexts/BibleContext';
+import { useFavorites } from '@/contexts/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { useScrollToVerse } from '@/hooks/useScrollToVerse';
@@ -146,6 +147,44 @@ export default function ReaderScreen() {
     setSearchQuery('');
   };
 
+  // Favorites Logic
+  const { isFavorite, addToFavorites, removeFromFavorites, favorites } = useFavorites();
+  
+  // Check if current selection is already saved
+  const isCurrentSelectionFavorite = React.useMemo(() => {
+    if (selectedVerseIds.length === 0) return false;
+    return isFavorite(currentBook, currentChapter, selectedVerseIds);
+  }, [selectedVerseIds, currentBook, currentChapter, favorites]);
+
+  const handleFavoriteVerse = async () => {
+    if (selectedVerseIds.length === 0) return;
+
+    // Check if we are ADDING or REMOVING
+    if (isCurrentSelectionFavorite) {
+        // To remove, we need the doc ID. 
+        // We can reconstruct it or find it in favorites
+        const sortedIds = [...selectedVerseIds].sort((a, b) => a - b);
+        const docId = `${currentBook}_${currentChapter}_${sortedIds.join('-')}`;
+        
+        await removeFromFavorites(docId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+        // Add
+        // 1. Get Text for Preview
+        const selectedVerses = verses
+            .filter(v => selectedVerseIds.includes(v.id))
+            .sort((a, b) => a.id - b.id);
+        
+        const previewText = selectedVerses.map(v => v.text).join(' ');
+
+        await addToFavorites(currentBook, currentChapter, selectedVerseIds, previewText);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    
+    // Optional: Close menu? Or keep open?
+    setSelectedVerseIds([]);
+  };
+
   return (
     <ThemedView style={styles.container}>
       <PageTransition>
@@ -218,6 +257,8 @@ export default function ReaderScreen() {
           <VerseActionMenu 
             visible={selectedVerseIds.length > 0}
             onCopy={handleCopyVerse}
+            onFavorite={handleFavoriteVerse}
+            isFavorite={isCurrentSelectionFavorite}
             onClose={() => setSelectedVerseIds([])}
             selectedCount={selectedVerseIds.length}
           />

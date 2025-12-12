@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BibleProvider } from '@/contexts/BibleContext';
+import { FavoritesProvider } from '@/contexts/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Updates from 'expo-updates';
@@ -78,11 +79,13 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SQLiteProvider databaseName="tanakh.db" assetSource={{ assetId: require('../assets/tanakh.db') }}>
           <BibleProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-            <StatusBar style="auto" />
+            <FavoritesProvider>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              <StatusBar style="auto" />
+            </FavoritesProvider>
           </BibleProvider>
         </SQLiteProvider>
       </ThemeProvider>
