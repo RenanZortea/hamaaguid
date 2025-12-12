@@ -26,15 +26,20 @@ export function DailyStudyCard({ data, loading }: DailyStudyCardProps) {
   }
 
   const hasDescription = data?.devotionalDescription;
-  const title = data?.devotionalTitle || "לימוד יומי";
+
   const content = hasDescription || 'בקרוב';
 
   return (
-    <GlassCard title={title}>
-      <View className="min-h-[96px] justify-center items-center p-2">
+    <GlassCard title="לימוד יומי">
+      <View className="p-4 gap-2">
+        {data?.devotionalTitle && (
+          <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+            {data.devotionalTitle}
+          </Text>
+        )}
         <Text 
-          className={`text-gray-900 dark:text-white ${hasDescription ? 'text-right w-full text-base leading-6' : 'opacity-50 italic text-gray-500 dark:text-gray-400'}`}
-          numberOfLines={hasDescription ? 4 : undefined}
+          className={`text-base leading-6 ${hasDescription ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400 opacity-50 italic'}`}
+          numberOfLines={hasDescription ? undefined : 2}
         >
           {content}
         </Text>

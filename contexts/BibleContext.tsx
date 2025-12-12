@@ -1,5 +1,6 @@
 import { useBibleChapter, Verse } from '@/hooks/useBible';
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface BibleContextType {
   book: string;
@@ -13,12 +14,44 @@ interface BibleContextType {
 const BibleContext = createContext<BibleContextType | undefined>(undefined);
 
 export function BibleProvider({ children }: { children: ReactNode }) {
-  const [book, setBook] = useState('בראשית');
-  const [chapter, setChapter] = useState(1);
+  const [book, setBookInternal] = useState('בראשית');
+  const [chapter, setChapterInternal] = useState(1);
+  const [persistenceLoaded, setPersistenceLoaded] = useState(false);
+
+  // Load saved state on mount
+  useEffect(() => {
+    async function loadState() {
+      try {
+        const savedBook = await AsyncStorage.getItem('last_book');
+        const savedChapter = await AsyncStorage.getItem('last_chapter');
+        
+        if (savedBook) setBookInternal(savedBook);
+        if (savedChapter) setChapterInternal(parseInt(savedChapter, 10));
+      } catch (e) {
+        console.error('Failed to load bible state:', e);
+      } finally {
+        setPersistenceLoaded(true);
+      }
+    }
+    loadState();
+  }, []);
   
-  // This hook now runs at the top level (within this provider)
-  // causing the data to be fetched immediately when the app starts.
-  const { verses, loading } = useBibleChapter(book, chapter);
+  // Wrappers to save state
+  const setBook = (newBook: string) => {
+    setBookInternal(newBook);
+    AsyncStorage.setItem('last_book', newBook).catch(e => console.error('Failed to save book:', e));
+  };
+
+  const setChapter = (newChapter: number) => {
+    setChapterInternal(newChapter);
+    AsyncStorage.setItem('last_chapter', String(newChapter)).catch(e => console.error('Failed to save chapter:', e));
+  };
+  
+  // This hook now runs at the top level
+  const { verses, loading: bibleLoading } = useBibleChapter(book, chapter);
+  
+  // Combine loading states - wait for persistence before showing content (optional, but prevents flash)
+  const loading = !persistenceLoaded || bibleLoading;
 
   const value = {
     book,
