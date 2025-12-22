@@ -2,9 +2,10 @@ import { parseHebrewNumeral, toHebrewNumeral } from '@/utils/hebrewNumerals';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 // @ts-ignore
-import FlexSearch from 'flexsearch/dist/flexsearch.bundle.min.js';
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import FlexSearch from 'flexsearch/dist/flexsearch.bundle.min.js';
+// @ts-ignore
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface SearchResult {
   type: 'book' | 'verse';
@@ -41,7 +42,6 @@ export function useOramaSearch(query: string) {
   useEffect(() => {
     async function init() {
       if (flexIndex.current) return;
-      console.log('[FlexSearch] Initializing from asset...');
       
       try {
         const bookRows = await db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים ORDER BY מזהה ASC');
@@ -57,20 +57,13 @@ export function useOramaSearch(query: string) {
             worker: false
         });
 
-        console.time('Import Index');
-        
-        // ---------------------------------------------------------
-        // CRITICAL FIX: Load Large JSON as Raw Asset (Not Module)
-        // ---------------------------------------------------------
-        
-        // 1. Reference the .data file (Must be renamed from .json)
-        // Note: Ensure you have global.d.ts configured to allow *.data imports
+        // 1. Reference the .data file
         const indexAsset = Asset.fromModule(require('@/assets/search-index.data'));
         
-        // 2. Ensure the asset is downloaded to the local filesystem
+        // 2. Ensure the asset is downloaded
         await indexAsset.downloadAsync();
         
-        // 3. Read the file content string from the local cache
+        // 3. Read the file
         const uri = indexAsset.localUri || indexAsset.uri;
         if (!uri) {
            throw new Error('Failed to resolve search index URI');
@@ -79,17 +72,11 @@ export function useOramaSearch(query: string) {
         const jsonString = await FileSystem.readAsStringAsync(uri);
         const indexData = JSON.parse(jsonString);
 
-        // 4. Import keys into FlexSearch
+        // 4. Import keys
         const keys = Object.keys(indexData);
         keys.forEach(key => {
             flexIndex.current.import(key, indexData[key]);
         });
-        
-        console.timeEnd('Import Index');
-        
-        // Sanity Check
-        const sanity = await flexIndex.current.search("בראשית", { limit: 1 });
-        console.log(`[FlexSearch] Sanity check "בראשית" matches:`, sanity.length > 0);
         
         setIsReady(true);
       } catch (e) {

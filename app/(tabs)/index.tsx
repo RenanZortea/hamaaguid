@@ -105,7 +105,6 @@ export default function HomeScreen() {
     { id: 'verse', type: 'verse' },
     { id: 'study', title: 'לימוד יומי', content: 'בקרוב' },
     { id: 'reading', title: 'קריאה יומית', content: 'בקרוב' },
-    { id: 'prayers', title: 'תפילות', content: 'בקרוב' },
   ];
 
   return (

@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BibleProvider } from '@/contexts/BibleContext';
 import { FavoritesProvider } from '@/contexts/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initUserDb } from '@/hooks/useUserDb';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Updates from 'expo-updates';
 import { useEffect } from "react";
@@ -52,6 +53,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Initialize User DB (async)
+      initUserDb().catch(e => console.error("Failed to init user db:", e));
     }
   }, [loaded]);
 

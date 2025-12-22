@@ -2,9 +2,13 @@ import { GlassView } from '@/components/ui/GlassView';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Clipboard, Heart, X } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, {
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from 'react-native-reanimated';
 
 interface VerseActionMenuProps {
   visible: boolean;
@@ -19,13 +23,29 @@ export function VerseActionMenu({ visible, onCopy, onFavorite, isFavorite = fals
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   
-  if (!visible) return null;
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(50);
+
+  useEffect(() => {
+    if (visible) {
+      opacity.value = withSpring(1, { damping: 25 });
+      translateY.value = withSpring(0, { damping: 25 });
+    } else {
+      opacity.value = withSpring(0, { damping: 25 });
+      translateY.value = withSpring(50, { damping: 25 });
+    }
+  }, [visible]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   return (
     <Animated.View 
-      entering={FadeInDown.springify().damping(25)} 
-      exiting={FadeOutDown.springify().damping(25)}
-      style={styles.container}
+      style={[styles.container, animatedStyle]}
+      // Immediately disable pointer events when not visible, allowing touches to pass through during exit animation
+      pointerEvents={visible ? 'auto' : 'none'}
     >
       <View style={{ gap: 12, alignItems: 'center' }}>
         
