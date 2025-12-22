@@ -6,10 +6,11 @@ const config = getDefaultConfig(__dirname);
 // Add 'db' to the list of asset extensions
 config.resolver.assetExts.push('db');
 
-// 1. Add 'wasm' to sourceExts so imports like "import ... from './file.wasm'" work
-config.resolver.sourceExts.push('wasm');
+// 1. Add 'data' to assetExts so search-index.data is bundled as a raw asset
+config.resolver.assetExts.push('data');
 
-// 2. Add 'wasm' to assetExts so the file is included in the bundle
+// 2. Add 'wasm' setup (keep existing)
+config.resolver.sourceExts.push('wasm');
 config.resolver.assetExts.push('wasm');
 
 module.exports = withNativeWind(config, { input: './global.css' });

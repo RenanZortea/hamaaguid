@@ -3,6 +3,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import FlexSearch from 'flexsearch/dist/flexsearch.bundle.min.js';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 
 export interface SearchResult {
   type: 'book' | 'verse';
@@ -35,7 +37,7 @@ export function useOramaSearch(query: string) {
   const flexIndex = useRef<any>(null);
   const allBooksRef = useRef<string[]>([]);
 
-  // 1. Initialize FlexSearch from Pre-computed Index
+  // 1. Initialize FlexSearch from Pre-computed Index (Async Asset Load)
   useEffect(() => {
     async function init() {
       if (flexIndex.current) return;
@@ -45,7 +47,7 @@ export function useOramaSearch(query: string) {
         const bookRows = await db.getAllAsync<{שם: string}>('SELECT שם FROM ספרים ORDER BY מזהה ASC');
         allBooksRef.current = bookRows.map(b => b.שם);
 
-        // Standard Config
+        // Configure FlexSearch
         flexIndex.current = new FlexSearch.Document({
             id: "id",
             index: ["cleanText"], 
@@ -55,16 +57,34 @@ export function useOramaSearch(query: string) {
             worker: false
         });
 
-        // Load pre-computed index
         console.time('Import Index');
-        // We use require to load the JSON synchronously (Metro bundles it)
-        const indexData = require('@/assets/search-index.json');
         
-        // Import keys
+        // ---------------------------------------------------------
+        // CRITICAL FIX: Load Large JSON as Raw Asset (Not Module)
+        // ---------------------------------------------------------
+        
+        // 1. Reference the .data file (Must be renamed from .json)
+        // Note: Ensure you have global.d.ts configured to allow *.data imports
+        const indexAsset = Asset.fromModule(require('@/assets/search-index.data'));
+        
+        // 2. Ensure the asset is downloaded to the local filesystem
+        await indexAsset.downloadAsync();
+        
+        // 3. Read the file content string from the local cache
+        const uri = indexAsset.localUri || indexAsset.uri;
+        if (!uri) {
+           throw new Error('Failed to resolve search index URI');
+        }
+
+        const jsonString = await FileSystem.readAsStringAsync(uri);
+        const indexData = JSON.parse(jsonString);
+
+        // 4. Import keys into FlexSearch
         const keys = Object.keys(indexData);
         keys.forEach(key => {
             flexIndex.current.import(key, indexData[key]);
         });
+        
         console.timeEnd('Import Index');
         
         // Sanity Check
@@ -79,9 +99,10 @@ export function useOramaSearch(query: string) {
     init();
   }, [db]);
 
-  // 2. Run Search
+  // 2. Run Search Logic
   useEffect(() => {
     async function runSearch() {
+      // If index isn't ready or query is empty, clear results
       if (!isReady || !flexIndex.current || !query || query.length < 1) {
         setResults([]);
         return;
@@ -94,12 +115,12 @@ export function useOramaSearch(query: string) {
         const navResults: SearchResult[] = [];
         const sortedBooks = [...allBooksRef.current].sort((a, b) => b.length - a.length);
 
-        // --- NAVIGATION SEARCH ---
+        // --- A. NAVIGATION SEARCH (Exact Book/Chapter references) ---
         for (const book of sortedBooks) {
           if (cleanQuery.startsWith(book)) {
             const remainder = cleanQuery.slice(book.length).trim();
             
-            // 1. Book only
+            // 1. Book only match
             if (remainder === '') {
                 navResults.push({
                     type: 'verse', 
@@ -110,7 +131,7 @@ export function useOramaSearch(query: string) {
                 });
             }
 
-            // 2. Book + Chapter
+            // 2. Book + Chapter/Verse match
             const parsed = parseLocation(remainder);
             if (parsed) {
               const chapNum = parseHebrewNumeral(parsed.chapterStr);
@@ -157,12 +178,12 @@ export function useOramaSearch(query: string) {
           }
         }
 
-        // --- FULL TEXT SEARCH ---
+        // --- B. FULL TEXT SEARCH (FlexSearch) ---
         let formattedResults: SearchResult[] = [];
         
         if (cleanQuery.length >= 2) {
             const rawResults = await flexIndex.current.search(cleanQuery, { limit: 20 });
-            // rawResults: [{ field: 'cleanText', result: [id, id...] }]
+            // rawResults format: [{ field: 'cleanText', result: [id, id...] }]
             
             const uniqueIds = new Set<string>();
             rawResults.forEach((fieldRes: any) => {
@@ -172,7 +193,7 @@ export function useOramaSearch(query: string) {
             const idsArray = Array.from(uniqueIds);
 
             if (idsArray.length > 0) {
-                // Fetch full verse details from DB
+                // Fetch full verse details from DB using IDs found in index
                 const placeholders = idsArray.map(() => '?').join(',');
                 const verses = await db.getAllAsync(`
                     SELECT 
@@ -186,7 +207,6 @@ export function useOramaSearch(query: string) {
                     WHERE p.מזהה IN (${placeholders})
                 `, idsArray);
                 
-                // Map back to maintain order if possible
                 const versesMap = new Map(verses.map((v: any) => [String(v.id), v]));
                 
                 formattedResults = idsArray
@@ -208,7 +228,8 @@ export function useOramaSearch(query: string) {
             }
         }
 
-        // Deduplication
+        // --- C. MERGE & DEDUPLICATE ---
+        // Remove text results that are already covered by navigation results
         const navIds = new Set(navResults.map(r => r.data?.id).filter(id => id > 0));
         const filteredTextResults = formattedResults.filter(r => !navIds.has(Number(r.id)));
 
@@ -221,6 +242,7 @@ export function useOramaSearch(query: string) {
       }
     }
 
+    // Debounce search by 300ms
     const timeout = setTimeout(runSearch, 300);
     return () => clearTimeout(timeout);
   }, [query, isReady]);

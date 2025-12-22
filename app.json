@@ -3,6 +3,7 @@
     "name": "hamaaguid",
     "slug": "pasukiah-mobile",
     "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hamaaguid",
@@ -49,7 +50,8 @@
       "expo-sqlite",
       "@react-native-firebase/app",
       "@react-native-google-signin/google-signin",
-      "expo-localization"
+      "expo-localization",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
