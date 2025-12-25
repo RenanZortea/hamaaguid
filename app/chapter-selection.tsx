@@ -138,19 +138,6 @@ export default function ChapterSelectionScreen() {
                 <View style={{ width: 26 }} />
             </View>
 
-            {/* Hero Section */}
-            <View style={[styles.heroSection, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)' }]}>
-                <View style={styles.heroContent}>
-                    <Text style={[styles.heroTitle, { color: textColor }]}>
-                        ספר {bookData.label}
-                    </Text>
-                    <View style={[styles.chapterBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}>
-                        <Text style={[styles.chapterBadgeText, { color: textColor }]}>
-                            {bookData.chapters} פרקים
-                        </Text>
-                    </View>
-                </View>
-            </View>
 
             {/* Chapter Grid */}
             <ScrollView 
@@ -232,8 +219,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 12,
-        textAlign: 'right',
-        writingDirection: 'rtl',
     },
     content: { paddingBottom: 40 },
     row: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -242,12 +227,6 @@ const styles = StyleSheet.create({
         borderRadius: 14, 
         justifyContent: 'center', 
         alignItems: 'center',
-        borderWidth: 1.5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 }, 
-        shadowOpacity: 0.1, 
-        shadowRadius: 6, 
-        elevation: 4,
     },
     chapterText: { 
         fontSize: 22, 

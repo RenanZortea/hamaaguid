@@ -41,9 +41,6 @@ const BookItem = React.memo(({
                         <Text style={[styles.bookTitle, { color: textColor }]} numberOfLines={1}>
                             {item.label}
                         </Text>
-                        <Text style={[styles.bookChapters, { color: subtitleColor }]}>
-                            {item.chapters} פרקים
-                        </Text>
                     </View>
                     <View style={[styles.chevronContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}>
                         <Ionicons name="chevron-back" size={18} color={subtitleColor} />
@@ -217,11 +214,6 @@ const styles = StyleSheet.create({
         padding: 14,
         borderRadius: 16,
         borderWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 3,
         gap: 12,
     },
     bookContent: {
@@ -231,14 +223,10 @@ const styles = StyleSheet.create({
     bookTitle: {
         fontSize: 17,
         fontWeight: '600',
-        textAlign: 'right',
-        writingDirection: 'rtl',
     },
     bookChapters: {
         fontSize: 13,
         marginTop: 2,
-        textAlign: 'right',
-        writingDirection: 'rtl',
     },
     chevronContainer: {
         width: 32,
