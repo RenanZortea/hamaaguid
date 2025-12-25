@@ -7,7 +7,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
-    withSpring
+    withTiming
 } from 'react-native-reanimated';
 
 interface VerseActionMenuProps {
@@ -24,21 +24,17 @@ export function VerseActionMenu({ visible, onCopy, onFavorite, isFavorite = fals
   const theme = colorScheme ?? 'light';
   
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(50);
 
   useEffect(() => {
     if (visible) {
-      opacity.value = withSpring(1, { damping: 25 });
-      translateY.value = withSpring(0, { damping: 25 });
+      opacity.value = withTiming(1, { duration: 150 });
     } else {
-      opacity.value = withSpring(0, { damping: 25 });
-      translateY.value = withSpring(50, { damping: 25 });
+      opacity.value = 0;
     }
   }, [visible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
   }));
 
   return (

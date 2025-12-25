@@ -1,10 +1,11 @@
-import { GlassCard } from '@/components/GlassCard';
 import { Skeleton } from '@/components/Skeleton';
-import { Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 interface DailyStudyData {
   devotionalTitle?: string;
   devotionalDescription?: string;
+  devotionalContent?: string;
 }
 
 interface DailyStudyCardProps {
@@ -13,37 +14,64 @@ interface DailyStudyCardProps {
 }
 
 export function DailyStudyCard({ data, loading }: DailyStudyCardProps) {
-  if (loading) {
-    return (
-      <GlassCard title="לימוד יומי">
-        <View className="min-h-[96px] justify-center items-center p-2 gap-2 w-full">
-          <Skeleton width="100%" height={20} />
-          <Skeleton width="90%" height={20} />
-          <Skeleton width="60%" height={20} style={{ alignSelf: 'flex-end' }} />
-        </View>
-      </GlassCard>
-    );
-  }
+  const router = useRouter();
+  
+  // Default fallback content if no data is provided
+  const title = data?.devotionalTitle || 'למה ללמוד תורה?';
+  const description = data?.devotionalDescription || 'לימוד התורה מחזק את הקשר שלנו עם הקב״ה ומעשיר את חיינו בחכמה ובהבנה.';
+  const content = data?.devotionalContent || '';
 
-  const hasDescription = data?.devotionalDescription;
-
-  const content = hasDescription || 'בקרוב';
+  const handlePress = () => {
+    router.push({
+      pathname: '/daily-study',
+      params: {
+        title,
+        description,
+        content,
+      },
+    });
+  };
 
   return (
-    <GlassCard title="לימוד יומי">
-      <View className="p-4 gap-2">
-        {data?.devotionalTitle && (
-          <Text className="text-2xl font-bold text-gray-900 dark:text-white">
-            {data.devotionalTitle}
-          </Text>
-        )}
-        <Text 
-          className={`text-base leading-6 ${hasDescription ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400 opacity-50 italic'}`}
-          numberOfLines={hasDescription ? undefined : 2}
-        >
-          {content}
+    <TouchableOpacity 
+      activeOpacity={0.7}
+      onPress={handlePress}
+      disabled={loading}
+      className="mx-4 my-2 min-h-[220px] bg-white dark:bg-neutral-900 rounded-2xl p-5"
+    >
+      {/* Header */}
+      <View className="flex-row">
+        <Text className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 font-semibold">
+          לימוד יומי
         </Text>
       </View>
-    </GlassCard>
+
+      {/* Content - Vertically Centered */}
+      <View className="flex-1 justify-center items-center py-4">
+        {loading ? (
+          <View className="w-full items-center gap-3">
+            <Skeleton height={32} width="70%" />
+            <Skeleton height={18} width="90%" />
+            <Skeleton height={18} width="75%" />
+          </View>
+        ) : (
+          <View className="gap-3 items-center">
+            <Text 
+              className="text-2xl font-bold text-center text-gray-900 dark:text-white" 
+              style={{ writingDirection: 'rtl' }}
+            >
+              {title}
+            </Text>
+            <Text 
+              className="text-base leading-7 text-center text-gray-600 dark:text-gray-300"
+              style={{ writingDirection: 'rtl' }}
+              numberOfLines={3}
+            >
+              {description}
+            </Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 }

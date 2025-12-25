@@ -10,12 +10,13 @@ import { useFavorites } from '@/contexts/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
 import { useScrollToVerse } from '@/hooks/useScrollToVerse';
+import { BibleTextView } from '@/modules/bible-text-view';
 import { toHebrewNumeral } from '@/utils/hebrewNumerals';
 import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, processColor, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- BIBLE STRUCTURE DATA ---
@@ -38,6 +39,7 @@ export default function ReaderScreen() {
   } = useBibleContext();
 
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
+  const [nativeHeight, setNativeHeight] = useState(200);
 
   // Use the scroll hook
   const { scrollViewRef, handleHeaderLayout, setVersePositions } = useScrollToVerse(
@@ -63,7 +65,7 @@ export default function ReaderScreen() {
       // <Text> {num} </Text><Text>{content}</Text>
       // The spaces around {num} depend on your JSX format. 
       // Based on your code: " " + num + " " + text
-      const numString = ` ${toHebrewNumeral(verse.verse)} `; 
+      const numString = ` ${toHebrewNumeral(verse.verse)}`; 
       const contentString = verse.text;
       
       verseIndices.push({ 
@@ -281,36 +283,38 @@ export default function ReaderScreen() {
               {currentBook} {toHebrewNumeral(currentChapter)}
             </ThemedText>
           </View>
-          <Text 
-                style={[styles.chapterText, { color: Colors[theme].text }]}
-                onTextLayout={handleTextLayout}
-              >
-                {verses.map((verse) => {
-                  const isSelected = selectedVerseIds.includes(verse.id);
-                  return (
-                    <React.Fragment key={verse.id}>
-                      <Text style={styles.verseNumber}> {toHebrewNumeral(verse.verse)} </Text>
-                      <Text 
-                        style={[
-                          styles.verseContent, 
-                          isSelected && { textDecorationLine: 'underline' }
-                        ]}
-                        onPress={() => {
-                          Haptics.selectionAsync();
-                          setSelectedVerseIds(prev => 
-                            isSelected 
-                              ? prev.filter(id => id !== verse.id)
-                              : [...prev, verse.id]
-                          );
-                        }}
-                        suppressHighlighting={false}
-                      >
-                        {verse.text}
-                      </Text>
-                    </React.Fragment>
-                  );
-                })}
-              </Text>
+          <View>
+            <BibleTextView 
+              verses={verses.map(v => ({
+                id: v.id,
+                verse: v.verse,
+                text: v.text
+              }))}
+              selectedIds={selectedVerseIds}
+              textColor={processColor(Colors[theme].text) as number}
+              textSize={28}
+              fontFamily="TaameyFrank-Bold"
+              darkMode={theme === 'dark'}
+              onVersePress={(event: { nativeEvent: { verseId: number } }) => {
+                const verseId = event.nativeEvent.verseId;
+                Haptics.selectionAsync();
+                
+                setSelectedVerseIds(prev => {
+                  const isSelected = prev.includes(verseId);
+                  if (isSelected) {
+                    return prev.filter(id => id !== verseId);
+                  } else {
+                    return [...prev, verseId];
+                  }
+                });
+              }}
+              // Handle dynamic sizing from native
+              onContentSizeChange={(e: any) => {
+                 setNativeHeight(e.nativeEvent.height);
+              }}
+              style={{ width: '100%', height: nativeHeight }}
+            />
+          </View>
             </ScrollView>
           )}
 
@@ -388,7 +392,6 @@ const styles = StyleSheet.create({
   verseNumber: {
     fontSize: 18,
     color: '#888',
-    marginHorizontal: 4,
     fontFamily: 'TaameyFrank-Bold',
   },
   verseContent: {

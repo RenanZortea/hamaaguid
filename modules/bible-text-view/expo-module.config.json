@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["bible-text-viewModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.bibletextview.BibleTextViewModule"]
+  }
+}

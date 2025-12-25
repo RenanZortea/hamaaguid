@@ -1,4 +1,3 @@
-import { GlassCard } from '@/components/GlassCard';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useReadingPlan } from '@/hooks/useReadingPlan';
@@ -20,18 +19,6 @@ export function DailyReadingCard({ loading: parentLoading }: DailyReadingCardPro
   
   const { progress, loading, markComplete } = useReadingPlan(db);
 
-  if (loading || parentLoading) {
-    return (
-      <GlassCard className="min-h-[140px]">
-         <View className="p-4 gap-2">
-            <Skeleton width="40%" height={20} />
-            <Skeleton width="70%" height={32} />
-            <Skeleton width="30%" height={16} />
-         </View>
-      </GlassCard>
-    );
-  }
-
   const handlePress = () => {
     if (progress) {
       router.push({
@@ -42,7 +29,7 @@ export function DailyReadingCard({ loading: parentLoading }: DailyReadingCardPro
   };
 
   const handleMarkComplete = () => {
-     if (progress?.isCompleted) return; // Already done
+     if (progress?.isCompleted) return;
 
      Alert.alert(
          'סיימת את הפרק?',
@@ -57,50 +44,66 @@ export function DailyReadingCard({ loading: parentLoading }: DailyReadingCardPro
   };
 
   const isComplete = progress?.isCompleted;
+  const isLoading = loading || parentLoading;
 
   return (
-    <GlassCard className="min-h-[140px]">
-      <View className="p-1 flex-1">
-        {/* Header */}
-        <View className="flex-row justify-between items-center mb-2 px-2 pt-2">
-             <Text className="text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium text-right w-full">
-               קריאה יומית
-             </Text>
-        </View>
+    <View className="mx-4 my-2 min-h-[140px] bg-white dark:bg-neutral-900 rounded-2xl p-5">
+      {/* Header */}
+      <View className="flex-row">
+        <Text className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 font-semibold">
+          קריאה יומית
+        </Text>
+      </View>
 
+      {/* Content */}
+      <View className="flex-row items-center justify-between flex-1">
+        {/* Text content */}
         <TouchableOpacity 
             activeOpacity={0.7}
             onPress={handlePress}
-            className="flex-1 justify-center items-center py-2"
+            className="flex-1"
+            disabled={isLoading}
         >
-             <Text className={`text-3xl font-bold ${isComplete ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`} style={{ writingDirection: 'rtl' }}>
-               {isComplete ? 'הושלם!' : `${progress?.bookName} ${progress ? numberToHebrew(progress.chapter) : ''}`}
-             </Text>
-             <Text className="text-sm text-gray-500 mt-1">
-               {isComplete ? `${progress?.bookName} ${progress ? numberToHebrew(progress.chapter) : ''}` : 'לחץ לקריאה'}
-             </Text>
+          {isLoading ? (
+            <View className="gap-2">
+              <Skeleton height={28} width="70%" />
+              <Skeleton height={14} width="40%" />
+            </View>
+          ) : (
+            <>
+              <Text 
+                className={`text-2xl font-bold ${isComplete ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`} 
+                style={{ writingDirection: 'rtl' }}
+              >
+                {isComplete ? 'הושלם!' : `${progress?.bookName} ${progress ? numberToHebrew(progress.chapter) : ''}`}
+              </Text>
+              <Text 
+                className="text-sm text-gray-500 dark:text-gray-400 mt-1" 
+                style={{ writingDirection: 'rtl' }}
+              >
+                {isComplete ? `${progress?.bookName} ${progress ? numberToHebrew(progress.chapter) : ''}` : 'לחץ לקריאה'}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
 
-        {/* Footer Actions */}
-        <View className="flex-row justify-start mt-2 px-2 pb-1 border-t border-gray-100/100 pt-2 dark:border-gray-800">
-            <TouchableOpacity 
-                onPress={handleMarkComplete}
-                disabled={isComplete}
-                className="flex-row items-center gap-2 p-2 rounded-lg active:bg-gray-100 dark:active:bg-gray-800"
-                style={{ opacity: isComplete ? 0.5 : 1 }}
-            >
-                <Ionicons 
-                  name={isComplete ? "checkmark-circle" : "checkmark-circle-outline"} 
-                  size={20} 
-                  color={isComplete ? '#10b981' : Colors[theme].tint} 
-                />
-                <Text style={{ color: isComplete ? '#10b981' : Colors[theme].tint }} className="font-medium">
-                    {isComplete ? 'בוצע להיום' : 'סמן כנקרא'}
-                </Text>
-            </TouchableOpacity>
-        </View>
+        {/* Checkmark icon button */}
+        {!isLoading && (
+          <TouchableOpacity 
+              onPress={handleMarkComplete}
+              disabled={isComplete}
+              className="p-3 rounded-full active:bg-gray-100 dark:active:bg-neutral-800"
+              style={{ opacity: isComplete ? 0.5 : 1 }}
+          >
+              <Ionicons 
+                name={isComplete ? "checkmark-circle" : "checkmark-circle-outline"} 
+                size={32} 
+                color={isComplete ? '#10b981' : Colors[theme].tint} 
+              />
+          </TouchableOpacity>
+        )}
       </View>
-    </GlassCard>
+    </View>
   );
 }
 
@@ -112,23 +115,18 @@ function numberToHebrew(num: number): string {
         200: 'ר', 300: 'ש', 400: 'ת'
     };
     
-    // Very basic implementation for demo, you might want to use your full library
     if (num <= 10) return gematria[num];
     
-    // For 11-19
     if (num < 20) {
         if (num === 15) return 'טו';
         if (num === 16) return 'טז';
         return 'י' + gematria[num - 10];
     }
 
-    // For 20+ generic
     const tens = Math.floor(num / 10) * 10;
     const units = num % 10;
     
-    // If exact tens
     if (units === 0) return gematria[tens] || '';
 
-    // Handle 15/16 composite logic if needed, but for now simple concatenation
     return (gematria[tens] || '') + (gematria[units] || '');
 }

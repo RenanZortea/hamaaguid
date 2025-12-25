@@ -3,7 +3,9 @@
     "name": "hamaaguid",
     "slug": "pasukiah-mobile",
     "version": "1.0.0",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "hamaaguid",

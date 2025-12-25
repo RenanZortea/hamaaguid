@@ -62,9 +62,6 @@ export const useReadingPlan = (bibleDb: SQLiteDatabase) => {
              [nextBookId, nextChapter, result.last_read_date, PLAN_ID] 
            );
            
-           // Sync NEW target to Cloud (so Web knows we moved on)
-           syncToCloud(nextBookId, nextChapter, result.last_read_date, false);
-           
            currentBookId = nextBookId;
            currentChapter = nextChapter;
            isCompleted = false;
@@ -107,9 +104,6 @@ export const useReadingPlan = (bibleDb: SQLiteDatabase) => {
         [PLAN_ID, progress.bookId, progress.chapter, today, 1]
       );
       
-      // Sync to Cloud
-      syncToCloud(progress.bookId, progress.chapter, today, true);
-
       // Refresh to update UI state
       await fetchProgress();
 
