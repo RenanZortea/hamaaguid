@@ -6,9 +6,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.method.LinkMovementMethod
-import android.text.style.BackgroundColorSpan
 import android.text.style.ClickableSpan
-import android.text.style.ForegroundColorSpan
 import android.view.View
 import androidx.appcompat.widget.AppCompatTextView
 import com.facebook.react.views.text.ReactFontManager
@@ -31,6 +29,13 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
     private val textView: AppCompatTextView
 
     private var customFontFamily: String? = null
+    private var lastReportedWidth: Int = 0
+    private var lastReportedHeight: Int = 0
+
+    // Maps to store current animated color state
+    private val verseTextColors = mutableMapOf<Int, Int>()
+    private val verseNumberColors = mutableMapOf<Int, Int>()
+    private var colorAnimator: android.animation.ValueAnimator? = null
 
     init {
         textView =
@@ -47,7 +52,7 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
                     val density = context.resources.displayMetrics.density
                     val hPadding = (24 * density).toInt()
                     val vPadding = (16 * density).toInt()
-                    val bottomPadding = (100 * density).toInt() // Extra space at bottom
+                    val bottomPadding = vPadding // Same as top padding
 
                     setPadding(hPadding, vPadding, hPadding, bottomPadding)
 
@@ -59,11 +64,44 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
         addView(textView)
 
         // Listen for layout changes to report height
-        textView.viewTreeObserver.addOnGlobalLayoutListener {
-            val width = textView.width
-            val height = textView.height
-            if (width > 0 && height > 0) {
-                onContentSizeChange(mapOf("width" to width, "height" to height))
+        textView.viewTreeObserver.addOnGlobalLayoutListener { requestMeasure() }
+    }
+
+    private fun requestMeasure() {
+        val width = textView.width
+        if (width > 0) {
+            var measuredHeight = 0
+
+            // Prefer using the actual layout if available
+            if (textView.layout != null) {
+                measuredHeight =
+                        textView.layout.height +
+                                textView.compoundPaddingTop +
+                                textView.compoundPaddingBottom
+            } else {
+                // Fallback to measure if layout is not yet ready
+                val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+                val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                textView.measure(widthSpec, heightSpec)
+                measuredHeight = textView.measuredHeight
+            }
+
+            // Always emit if valid
+            if (measuredHeight > 0 &&
+                            (kotlin.math.abs(measuredHeight - lastReportedHeight) > 2 ||
+                                    width != lastReportedWidth)
+            ) {
+
+                lastReportedWidth = width
+                lastReportedHeight = measuredHeight
+
+                // FIX: Convert Pixels to DIPs (Density Independent Pixels)
+                val density = context.resources.displayMetrics.density
+                val widthDp = width / density
+                val heightDp = measuredHeight / density
+
+                // Send the DIP values to React Native
+                onContentSizeChange(mapOf("width" to widthDp, "height" to heightDp))
             }
         }
     }
@@ -76,8 +114,10 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
     }
 
     fun setSelectedIds(ids: Set<Int>) {
-        this.selectedIds = ids
-        rebuildText()
+        if (this.selectedIds != ids) {
+            this.selectedIds = ids
+            animateSelectionUpdate()
+        }
     }
 
     fun setTextColor(color: Int) {
@@ -117,68 +157,53 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
 
     private fun getDimmedColor(): Int {
         val alpha = (255 * dimmedAlpha).toInt()
-        return if (isDarkMode) {
-            Color.argb(alpha, 255, 255, 255)
-        } else {
-            Color.argb(alpha, 0, 0, 0)
-        }
-    }
-
-    private fun getHighlightColor(): Int {
-        return if (isDarkMode) {
-            Color.argb(40, 255, 255, 255)
-        } else {
-            Color.argb(20, 0, 0, 0)
-        }
+        val r = Color.red(textColor)
+        val g = Color.green(textColor)
+        val b = Color.blue(textColor)
+        return Color.argb(alpha, r, g, b)
     }
 
     private fun rebuildText() {
-        val builder = SpannableStringBuilder()
-        val hasSelection = selectedIds.isNotEmpty()
+        // Reset colors
+        verseTextColors.clear()
+        verseNumberColors.clear()
         val dimmedColor = getDimmedColor()
-        val highlightColor = getHighlightColor()
         val numberColor = Color.GRAY
-        val dimmedNumberColor = dimmedColor
+        val hasSelection = selectedIds.isNotEmpty()
 
         verses.forEach { verse ->
             val isSelected = selectedIds.contains(verse.id)
             val isDimmed = hasSelection && !isSelected
-            val color = if (isDimmed) dimmedColor else textColor
-            val numColor = if (isDimmed) dimmedNumberColor else numberColor
 
-            // Add verse number
+            // Initial Colors
+            verseTextColors[verse.id] = if (isDimmed) dimmedColor else textColor
+            verseNumberColors[verse.id] = if (isDimmed) dimmedColor else numberColor
+        }
+
+        val builder = SpannableStringBuilder()
+
+        verses.forEach { verse ->
+            // Add verse number in Hebrew
+            val hebrewNum = toHebrewNumber(verse.verseNumber)
             val numStart = builder.length
-            builder.append(" ${verse.verseNumber} ")
+            builder.append(" $hebrewNum ")
+
+            // Dynamic Number Color Span
             builder.setSpan(
-                    ForegroundColorSpan(numColor),
+                    object : android.text.style.CharacterStyle() {
+                        override fun updateDrawState(tp: TextPaint) {
+                            tp.color = verseNumberColors[verse.id] ?: Color.GRAY
+                        }
+                    },
                     numStart,
                     builder.length,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
 
-            // Add verse text with click handler
+            // Add verse text
             val textStart = builder.length
             builder.append(verse.text)
 
-            // Text color
-            builder.setSpan(
-                    ForegroundColorSpan(color),
-                    textStart,
-                    builder.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
-            // Background highlight for selected
-            if (isSelected) {
-                builder.setSpan(
-                        BackgroundColorSpan(highlightColor),
-                        textStart,
-                        builder.length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-
-            // Click handler
             val verseId = verse.id
             builder.setSpan(
                     object : ClickableSpan() {
@@ -187,7 +212,7 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
                         }
                         override fun updateDrawState(ds: TextPaint) {
                             ds.isUnderlineText = false
-                            ds.color = color
+                            ds.color = verseTextColors[verseId] ?: textColor
                         }
                     },
                     textStart,
@@ -198,8 +223,108 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
 
         textView.text = builder
         applyFont()
-
-        // Use a simpler requestLayout approach
         textView.requestLayout()
+        textView.post { requestMeasure() }
+    }
+
+    private fun toHebrewNumber(number: Int): String {
+        if (number <= 0) return ""
+
+        var n = number
+        val sb = StringBuilder()
+
+        val tens = arrayOf("", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ")
+        val units = arrayOf("", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט")
+
+        if (n >= 100) {
+            val h = n / 100
+            if (h == 1) sb.append("ק")
+            else if (h == 2) sb.append("ר")
+            else if (h == 3) sb.append("ש")
+            else if (h == 4) sb.append("ת")
+            else if (h >= 5) {
+                repeat(h) { sb.append("ק") }
+            }
+            n %= 100
+        }
+
+        if (n == 15) {
+            sb.append("טו")
+        } else if (n == 16) {
+            sb.append("טז")
+        } else {
+            val t = n / 10
+            if (t > 0) sb.append(tens[t])
+            val u = n % 10
+            if (u > 0) sb.append(units[u])
+        }
+
+        return sb.toString()
+    }
+
+    private data class ColorTarget(
+            val id: Int,
+            val startText: Int,
+            val targetText: Int,
+            val startNum: Int,
+            val targetNum: Int
+    )
+
+    private fun animateSelectionUpdate() {
+        colorAnimator?.cancel()
+
+        val itemTargets = ArrayList<ColorTarget>()
+        val dimmedColor = getDimmedColor()
+        val numberColor = Color.GRAY
+        val hasSelection = selectedIds.isNotEmpty()
+
+        verses.forEach { verse ->
+            val isSelected = selectedIds.contains(verse.id)
+            val isDimmed = hasSelection && !isSelected
+            val targetTextColor = if (isDimmed) dimmedColor else textColor
+            val targetNumColor = if (isDimmed) dimmedColor else numberColor
+
+            val startTextColor = verseTextColors[verse.id] ?: textColor
+            val startNumColor = verseNumberColors[verse.id] ?: numberColor
+
+            if (startTextColor != targetTextColor || startNumColor != targetNumColor) {
+                itemTargets.add(
+                        ColorTarget(
+                                verse.id,
+                                startTextColor,
+                                targetTextColor,
+                                startNumColor,
+                                targetNumColor
+                        )
+                )
+            }
+        }
+
+        if (itemTargets.isEmpty()) return
+
+        colorAnimator =
+                android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 200 // 200ms smooth transition
+                    addUpdateListener { animator ->
+                        val fraction = animator.animatedFraction
+                        itemTargets.forEach { target ->
+                            verseTextColors[target.id] =
+                                    blendColors(target.startText, target.targetText, fraction)
+                            verseNumberColors[target.id] =
+                                    blendColors(target.startNum, target.targetNum, fraction)
+                        }
+                        textView.invalidate()
+                    }
+                    start()
+                }
+    }
+
+    private fun blendColors(color1: Int, color2: Int, ratio: Float): Int {
+        val inverseRatio = 1f - ratio
+        val a = (Color.alpha(color1) * inverseRatio + Color.alpha(color2) * ratio).toInt()
+        val r = (Color.red(color1) * inverseRatio + Color.red(color2) * ratio).toInt()
+        val g = (Color.green(color1) * inverseRatio + Color.green(color2) * ratio).toInt()
+        val b = (Color.blue(color1) * inverseRatio + Color.blue(color2) * ratio).toInt()
+        return Color.argb(a, r, g, b)
     }
 }

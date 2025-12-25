@@ -39,7 +39,7 @@ export default function ReaderScreen() {
   } = useBibleContext();
 
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
-  const [nativeHeight, setNativeHeight] = useState(200);
+  // nativeHeight removed as it is handled internally by BibleTextView
 
   // Use the scroll hook
   const { scrollViewRef, handleHeaderLayout, setVersePositions } = useScrollToVerse(
@@ -308,11 +308,7 @@ export default function ReaderScreen() {
                   }
                 });
               }}
-              // Handle dynamic sizing from native
-              onContentSizeChange={(e: any) => {
-                 setNativeHeight(e.nativeEvent.height);
-              }}
-              style={{ width: '100%', height: nativeHeight }}
+              style={{ width: '100%' }}
             />
           </View>
             </ScrollView>

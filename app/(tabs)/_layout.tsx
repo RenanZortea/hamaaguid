@@ -4,7 +4,7 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { BookOpen, Circle, House } from 'lucide-react-native';
+import { BookOpen, Circle, GraduationCap, House } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -32,6 +32,13 @@ export default function TabLayout() {
         options={{
           title: 'תנך',
           tabBarIcon: ({ color }) => <BookOpen size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="study"
+        options={{
+          title: 'לימוד',
+          tabBarIcon: ({ color }) => <GraduationCap size={28} color={color} />,
         }}
       />
       <Tabs.Screen
