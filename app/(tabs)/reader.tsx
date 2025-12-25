@@ -1,5 +1,6 @@
 import { AnimatedSearch } from '@/components/AnimatedSearch';
 import { PageTransition } from '@/components/PageTransition';
+import { ReadingSettingsMenu } from '@/components/ReadingSettingsMenu';
 import { SelectVerseButton } from '@/components/SelectVerseButton';
 import { VerseActionMenu } from '@/components/VerseActionMenu';
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +10,7 @@ import { useBibleContext } from '@/contexts/BibleContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SearchResult, useOramaSearch } from '@/hooks/useOramaSearch';
+import { useReadingSettings } from '@/hooks/useReadingSettings';
 import { useScrollToVerse } from '@/hooks/useScrollToVerse';
 import { BibleTextView } from '@/modules/bible-text-view';
 import { toHebrewNumeral } from '@/utils/hebrewNumerals';
@@ -16,11 +18,14 @@ import * as ClipboardAPI from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, processColor, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, processColor, StyleSheet, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- BIBLE STRUCTURE DATA ---
 // --- BIBLE STRUCTURE DATA MOVED TO constants/bibleData.ts ---
+
+import { PullToReveal } from '@/components/PullToReveal';
 
 export default function ReaderScreen() {
   const colorScheme = useColorScheme();
@@ -39,74 +44,25 @@ export default function ReaderScreen() {
   } = useBibleContext();
 
   const [selectedVerseIds, setSelectedVerseIds] = useState<number[]>([]);
-  // nativeHeight removed as it is handled internally by BibleTextView
+  
+  // --- MENU HEIGHT CONSTANT ---
+  const MENU_HEIGHT = 150; 
 
-  // Use the scroll hook
+  // We no longer need offset in useScrollToVerse since the menu is overlaid/behind
   const { scrollViewRef, handleHeaderLayout, setVersePositions } = useScrollToVerse(
     params,
     verses,
-    loading
+    loading,
+    0 // No offset needed for overlay
   );
 
-  // --- NEW LOGIC START ---
-  const handleTextLayout = (e: any) => {
-    const lines = e.nativeEvent.lines;
-    const positions: { [key: number]: number } = {};
-    
-    // 1. Construct the "Virtual" text map to find start indices of each verse
-    // We must replicate exactly how the text is rendered in the JSX below.
-    // Structure: " {hebrewNum} {verseText}"
-    
-    let currentIndex = 0;
-    const verseIndices: { id: number; startIndex: number }[] = [];
-
-    verses.forEach((verse) => {
-      // Logic must match the JSX rendering:
-      // <Text> {num} </Text><Text>{content}</Text>
-      // The spaces around {num} depend on your JSX format. 
-      // Based on your code: " " + num + " " + text
-      const numString = ` ${toHebrewNumeral(verse.verse)}`; 
-      const contentString = verse.text;
-      
-      verseIndices.push({ 
-        id: verse.id, 
-        startIndex: currentIndex 
-      });
-
-      // Advance index
-      currentIndex += numString.length + contentString.length;
-    });
-
-    // 2. Map Verses to Lines
-    // We iterate through lines and check which verse falls inside them.
-    let currentLineStartIndex = 0;
-    
-    lines.forEach((line: any) => {
-      const lineEndIndex = currentLineStartIndex + line.text.length;
-
-      // Find verses that START on this line
-      const versesOnLine = verseIndices.filter(v => 
-        v.startIndex >= currentLineStartIndex && v.startIndex < lineEndIndex
-      );
-
-      versesOnLine.forEach(v => {
-        // Store the Y position of this line
-        positions[v.id] = line.y;
-      });
-
-      currentLineStartIndex += line.text.length;
-    });
-
-    // 3. Update the hook with calculated positions
-    setVersePositions(positions);
-  };
-  // --- NEW LOGIC END ---
+  // Track if we are at the top to enable Pull-to-Reveal
+  const [isAtTop, setIsAtTop] = useState(true);
 
   // 1. Setup Search State
   const [searchQuery, setSearchQuery] = useState('');
   const { results: searchResults, loading: searchLoading } = useOramaSearch(searchQuery);
 
-  // Handle Navigation Params (from Search)
   // Handle Navigation Params (from Search)
   useEffect(() => {
     if (params.book) {
@@ -126,12 +82,6 @@ export default function ReaderScreen() {
             // If verses are loaded, we can select immediately
             if (endVerse) {
                 // Range Selection
-                const idsToObject: number[] = [];
-                // We need to find the ID for start and end verse. 
-                // Since we don't have a direct map of VerseNum -> ID without iterating, 
-                // and IDs might not be sequential numbers (they are DB IDs), we filter.
-                
-                // Optimized: Filter verses that are within the range
                 const rangeIds = verses
                     .filter(v => v.verse >= startVerse && v.verse <= endVerse)
                     .map(v => v.id);
@@ -144,9 +94,6 @@ export default function ReaderScreen() {
                     setSelectedVerseIds([targetVerse.id]);
                 }
             }
-        } else {
-            // If loading, we might need a way to "pending" select. 
-            // For now, let's just retry when verses change.
         }
       } else {
         setSelectedVerseIds([]); 
@@ -157,12 +104,10 @@ export default function ReaderScreen() {
   // Search State
   const [searchVisible, setSearchVisible] = useState(false);
 
-
-
   const handleCopyVerse = async () => {
     if (selectedVerseIds.length === 0) return;
     
-    // Get selected verses and sort by ID (assuming ID correlates to verse number order)
+    // Get selected verses and sort by ID
     const selectedVerses = verses
       .filter(v => selectedVerseIds.includes(v.id))
       .sort((a, b) => a.id - b.id);
@@ -183,7 +128,6 @@ export default function ReaderScreen() {
 
   const handleSearchSelect = (item: SearchResult) => {
     if (item.type === 'book') {
-      // item.data is the book object: { id, name }
       router.setParams({
         book: item.label,
         chapter: '1',
@@ -191,7 +135,6 @@ export default function ReaderScreen() {
         endVerse: ''
       });
     } else {
-      // item.data is the verse object: { id, book_name, chapter, verse, text, endVerse? }
       router.setParams({
         book: item.data.book_name,
         chapter: String(item.data.chapter),
@@ -223,96 +166,109 @@ export default function ReaderScreen() {
   const handleFavoriteVerse = async () => {
     if (selectedVerseIds.length === 0) return;
 
-    // Check if we are ADDING or REMOVING
     if (isCurrentSelectionFavorite) {
-        // To remove, we need the doc ID. 
-        // ID is constructed from book_chapter_verseNUMBERS
         const docId = `${currentBook}_${currentChapter}_${selectedVerseNumbers.join('-')}`;
-        
         await removeFromFavorites(docId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
-        // Add
-        // 1. Get Text for Preview
         const selectedVerses = verses
             .filter(v => selectedVerseIds.includes(v.id))
-            .sort((a, b) => a.id - b.id);
-            
+            .sort((a, b) => a.id - b.id); 
         const previewText = selectedVerses.map(v => v.text).join(' ');
 
         await addToFavorites(currentBook, currentChapter, selectedVerseNumbers, previewText);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-    
-    // Optional: Close menu? Or keep open?
     setSelectedVerseIds([]);
   };
+
+  const { 
+    settings, 
+    setFontSize, 
+    setFontFamily,
+  } = useReadingSettings();
 
   return (
     <ThemedView style={styles.container}>
       <PageTransition>
         <SafeAreaView style={styles.container} edges={['top']}>
           
-          {/* Content */}
           {loading ? (
             <ThemedView style={styles.center}>
               <ActivityIndicator size="large" color={Colors[theme].tint} />
               <ThemedText style={styles.loadingText}>טוען...</ThemedText>
             </ThemedView>
           ) : (
-            <ScrollView 
-              ref={scrollViewRef}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
+            <PullToReveal
+               isAtTop={isAtTop}
+               menuHeight={MENU_HEIGHT}
+               simultaneousHandlers={scrollViewRef} // Connect ScrollView
+               backgroundColor={Colors[theme].background} // Connect Theme
+               menu={
+                  <ReadingSettingsMenu 
+                    visible={true}
+                    settings={settings}
+                    setFontSize={setFontSize}
+                    setFontFamily={setFontFamily}
+                  />
+               }
             >
-
-          {/* Header */}
-          <View 
-            style={styles.header}
-            onLayout={handleHeaderLayout}
-          >
-            <ThemedText 
-              type="title" 
-              style={{ 
-                fontSize: 28, 
-                fontFamily: 'TaameyFrank-Bold', // Use the specific Bold font family
-                fontWeight: 'normal',
-                marginTop: 10,
-              }}
-            >
-              {currentBook} {toHebrewNumeral(currentChapter)}
-            </ThemedText>
-          </View>
-          <View>
-            <BibleTextView 
-              verses={verses.map(v => ({
-                id: v.id,
-                verse: v.verse,
-                text: v.text
-              }))}
-              selectedIds={selectedVerseIds}
-              textColor={processColor(Colors[theme].text) as number}
-              textSize={28}
-              fontFamily="TaameyFrank-Bold"
-              darkMode={theme === 'dark'}
-              onVersePress={(event: { nativeEvent: { verseId: number } }) => {
-                const verseId = event.nativeEvent.verseId;
-                Haptics.selectionAsync();
-                
-                setSelectedVerseIds(prev => {
-                  const isSelected = prev.includes(verseId);
-                  if (isSelected) {
-                    return prev.filter(id => id !== verseId);
-                  } else {
-                    return [...prev, verseId];
-                  }
-                });
-              }}
-              style={{ width: '100%' }}
-            />
-          </View>
-            </ScrollView>
+                <ScrollView 
+                  ref={scrollViewRef}
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  overScrollMode="never" // Prevent Android glow effect stealing touch
+                  bounces={false} // Prevent iOS bounce stealing touch
+                  onScroll={(e) => {
+                      const y = e.nativeEvent.contentOffset.y;
+                      setIsAtTop(y <= 0);
+                  }}
+                >
+                  
+                  {/* Header (Visual only) */}
+                  <View 
+                    style={styles.header}
+                    onLayout={handleHeaderLayout}
+                  >
+                    <ThemedText 
+                      type="title" 
+                      style={{ 
+                        fontSize: 28, 
+                        fontFamily: settings.fontFamily, 
+                        fontWeight: 'normal',
+                        marginTop: 10,
+                      }}
+                    >
+                      {currentBook} {toHebrewNumeral(currentChapter)}
+                    </ThemedText>
+                  </View>
+    
+                  <BibleTextView 
+                    verses={verses.map(v => ({
+                      id: v.id,
+                      verse: v.verse,
+                      text: v.text
+                    }))}
+                    selectedIds={selectedVerseIds}
+                    textColor={processColor(Colors[theme].text) as number}
+                    textSize={settings.fontSize}
+                    fontFamily={settings.fontFamily}
+                    darkMode={theme === 'dark'}
+                    onVersePress={(event: { nativeEvent: { verseId: number } }) => {
+                        // ... existing logic ...
+                        const verseId = event.nativeEvent.verseId;
+                        Haptics.selectionAsync();
+                        setSelectedVerseIds(prev => prev.includes(verseId) ? prev.filter(id => id !== verseId) : [...prev, verseId]);
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </ScrollView>
+            </PullToReveal>
           )}
+
+          {/* FABs ... */}
+
 
           {/* Floating Action Buttons */}
           
@@ -328,7 +284,11 @@ export default function ReaderScreen() {
 
           {/* Trigger Button - Hides when verse is selected to reduce clutter */}
           {selectedVerseIds.length === 0 && (
-            <View style={styles.fab}>
+            <View 
+              style={styles.fab}
+              onStartShouldSetResponder={() => true}
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
               <SelectVerseButton 
                 label={`${currentBook} ${toHebrewNumeral(currentChapter)}`}
                 onPress={() => router.push('/book-selection')}
@@ -399,5 +359,6 @@ const styles = StyleSheet.create({
     bottom: 30,
     right: 24,
     zIndex: 50,
+    elevation: 50, // Higher than PullToReveal (10)
   },
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, ScrollView } from 'react-native';
+import { LayoutChangeEvent } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 interface Verse {
   id: number;
@@ -9,7 +10,8 @@ interface Verse {
 export function useScrollToVerse(
   params: { highlightVerse?: string | string[] },
   verses: Verse[],
-  loading: boolean
+  loading: boolean,
+  offset: number = 0 // New parameter for menu offset
 ) {
   const scrollViewRef = useRef<ScrollView>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -43,7 +45,7 @@ export function useScrollToVerse(
        // Add a small delay to ensure ScrollView is ready
        setTimeout(() => {
          scrollViewRef.current?.scrollTo({
-           y: y + headerHeight, // Adjust for header
+           y: y + headerHeight + offset, // Adjust for header + menu offset
            animated: true,
          });
        }, 100);
@@ -53,7 +55,7 @@ export function useScrollToVerse(
   // Trigger scroll when params change
   useEffect(() => {
     scrollToHighlightedVerse();
-  }, [params.highlightVerse, verses, loading, headerHeight]);
+  }, [params.highlightVerse, verses, loading, headerHeight, offset]);
 
   return {
     scrollViewRef,

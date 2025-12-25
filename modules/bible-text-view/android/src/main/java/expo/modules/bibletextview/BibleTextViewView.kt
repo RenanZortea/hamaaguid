@@ -200,6 +200,14 @@ class BibleTextViewView(context: Context, appContext: AppContext) : ExpoView(con
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
 
+            // Reduce verse number size
+            builder.setSpan(
+                    android.text.style.RelativeSizeSpan(0.75f),
+                    numStart,
+                    builder.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
             // Add verse text
             val textStart = builder.length
             builder.append(verse.text)

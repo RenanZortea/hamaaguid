@@ -3,7 +3,8 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Clipboard, Heart, X } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -88,6 +89,7 @@ export function VerseActionMenu({ visible, onCopy, onFavorite, isFavorite = fals
           onPress={onClose}
           activeOpacity={0.8}
           style={{ marginTop: 4 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <GlassView 
             intensity={80} 
@@ -109,6 +111,7 @@ const styles = StyleSheet.create({
     bottom: 40,
     alignSelf: 'center',
     zIndex: 100,
+    elevation: 100, // Higher than PullToReveal (10)
   },
   actionText: {
     fontSize: 16,
